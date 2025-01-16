@@ -1,0 +1,17 @@
+[project]
+name = "screening-rag"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Nancycho", email = "nancy1xn1xn@gmail.com" }
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+screening-rag = "screening_rag:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
