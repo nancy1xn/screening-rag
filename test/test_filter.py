@@ -121,10 +121,10 @@ with open("article_filter2.json", "r") as file:
 
 db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
 cur=db.cursor()
-cur.execute("DROP TABLE CNN_NEWS_TEST;")
-# cur.execute("CREATE TABLE CNN_NEWS (PK INTEGER, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300) );")
+cur.execute("DROP TABLE CNN_NEWS;")
+cur.execute("CREATE TABLE CNN_NEWS (PK INT NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(PK));")
 
-cur.execute("CREATE TABLE CNN_NEWS_TEST (title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300) );")
+# cur.execute("CREATE TABLE CNN_NEWS_TEST (title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300) );")
 
 # cur.execute("DESCRIBE CNN_NEWS_TEST;")
 # myresult = cur.fetchall()
@@ -133,7 +133,7 @@ cur.execute("CREATE TABLE CNN_NEWS_TEST (title VARCHAR(300), description VARCHAR
 
 for news_article in news_article_collection:
     cur.execute(
-            """INSERT INTO my_database.CNN_NEWS_TEST (title, description, maintext, date_publish, url)
+            """INSERT INTO my_database.CNN_NEWS (title, description, maintext, date_publish, url)
             VALUES (%s, %s, %s, %s, %s)""",
             (news_article["title"], 
              news_article["description"], 
@@ -142,7 +142,7 @@ for news_article in news_article_collection:
              news_article["url"])
              )
     db.commit()
-cur.execute("select * from my_database.CNN_NEWS_TEST")
+cur.execute("select * from my_database.CNN_NEWS")
 for row in cur.fetchall():
     print(row)
 
