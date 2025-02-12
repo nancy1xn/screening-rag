@@ -100,8 +100,8 @@ def get_cnn_news(
             elif "False." in message.values():
                 message.clear()
             else:
-                news_article_object_collection.append(article.get_serializable_dict())
-            
+                yield article.get_serializable_dict()
+                # news_article_object_collection.append(article.get_serializable_dict())
             count +=1                
             # print(f'count{count}')
             if count>=amount:
@@ -111,13 +111,13 @@ def get_cnn_news(
         page += 1
         news_start_from += 3
 
-    with open("article_filter2.json", "w") as file:
-        json.dump(news_article_object_collection, file, indent=4)
+    # with open("article_filter2.json", "w") as file:
+    #     json.dump(news_article_object_collection, file, indent=4)
 
-get_cnn_news('putin financial crime', 4, SortingBy.RELEVANCY)
+get_news = get_cnn_news('putin financial crime', 2, SortingBy.RELEVANCY)
 
-with open("article_filter2.json", "r") as file:
-    news_article_collection = json.load(file)
+# with open("article_filter2.json", "r") as file:
+#     news_article_collection = json.load(file)
 
 db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
 cur=db.cursor()
@@ -131,7 +131,9 @@ cur.execute("CREATE TABLE CNN_NEWS (PK INT NOT NULL AUTO_INCREMENT, title VARCHA
 # for x in myresult:
 #     print(x)
 
-for news_article in news_article_collection:
+# for news_article in news_article_collection:
+
+for news_article in get_news:
     cur.execute(
             """INSERT INTO my_database.CNN_NEWS (title, description, maintext, date_publish, url)
             VALUES (%s, %s, %s, %s, %s)""",
