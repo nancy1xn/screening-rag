@@ -11,12 +11,7 @@ from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.load import dumps, loads
-import time
-
-   
-# def is_news_article(news):
-#     return news["type"] == "NewsArticle"
-
+ 
 class SortingBy(str, Enum):
     NEWEST = "newest"
     RELEVANCY = "relevance"
@@ -121,12 +116,13 @@ get_news = get_cnn_news('putin financial crime', 2, SortingBy.RELEVANCY)
 
 db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
 cur=db.cursor()
-cur.execute("DROP TABLE CNN_NEWS;")
-cur.execute("CREATE TABLE CNN_NEWS (PK INT NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(PK));")
+# cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
+# cur.execute("DROP TABLE CNN_NEWS;")
+cur.execute("CREATE TABLE CNN_NEWS (Article_PK BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(Article_PK));")
 
 # cur.execute("CREATE TABLE CNN_NEWS_TEST (title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300) );")
 
-# cur.execute("DESCRIBE CNN_NEWS_TEST;")
+# cur.execute("DESCRIBE CNN_NEWS;")
 # myresult = cur.fetchall()
 # for x in myresult:
 #     print(x)
@@ -147,4 +143,7 @@ for news_article in get_news:
 cur.execute("select * from my_database.CNN_NEWS")
 for row in cur.fetchall():
     print(row)
+
+
+
 
