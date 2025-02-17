@@ -20,12 +20,11 @@ def get_cnn_news(
     keyword: str,
     amount: int,
     sort_by: SortingBy,
-) -> t.List[NewsArticle]:
+) -> t.Iterable[NewsArticle]:
 
     count = 0
     page = 1
     news_start_from = 0
-    news_article_object_collection =[]
     size_per_page = 3
   
 
@@ -104,7 +103,7 @@ def get_cnn_news(
 
         # print(f'page{page} successfully processed')
         page += 1
-        news_start_from += 3
+        news_start_from += size_per_page
 
     # with open("article_filter2.json", "w") as file:
     #     json.dump(news_article_object_collection, file, indent=4)
