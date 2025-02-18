@@ -6,16 +6,16 @@ from langchain_openai import OpenAIEmbeddings
 
 embeddings = OpenAIEmbeddings(
     model="text-embedding-3-large",
-    dimensions=1024
+    dimensions=3072
 )
 
 # create collections
 from qdrant_client import QdrantClient, models
 client = QdrantClient(url="http://localhost:6333")
-# client.create_collection(
-#     collection_name="cnn_news_chunk_vectors",
-#     vectors_config=models.VectorParams(size=1024, distance=models.Distance.COSINE),
-# )
+client.create_collection(
+    collection_name="cnn_news_chunk_vectors",
+    vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
+)
 
 # assert client.collection_exists(collection_name="cnn_news_chunk_vectors")
 # collection_info = client.get_collection("cnn_news_chunk_vectors")
@@ -29,7 +29,8 @@ unique_id = 0
 for row in cur.fetchall():
     row: t.Tuple
     pk_chunk, text, article_pk = row
-    text_openai_vectors = embeddings.embed_documents(text)
+    print(f'one of the row {row}')
+    text_openai_vectors = embeddings.embed_documents([text])
     text_openai_vectors: t.List[List[float]]
     for each_text_openai_vectors in text_openai_vectors:
         print(f'unique_id:{unique_id}')
