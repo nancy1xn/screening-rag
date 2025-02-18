@@ -24,7 +24,7 @@ cur=db.cursor()
 def chunk_text(text:str) -> t.Iterable[str]:
     character_splitter = RecursiveCharacterTextSplitter(
         separators=["\n"],
-        chunk_size=500,
+        chunk_size=256,
         chunk_overlap=50,
         add_start_index=True
     )
