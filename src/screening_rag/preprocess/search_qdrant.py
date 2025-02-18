@@ -5,17 +5,17 @@ from langchain_openai import OpenAIEmbeddings
 
 embeddings = OpenAIEmbeddings(
     model="text-embedding-3-large",
-    dimensions=1024
+    dimensions=3072
 )
 
 from qdrant_client import QdrantClient, models
 client = QdrantClient(url="http://localhost:6333")
 
 
-question = "Putin money laundering"
+question = "Putin committed money laundering"
 
 #embed
-question_openai_vectors = embeddings.embed_documents(question)
+question_openai_vectors = embeddings.embed_documents([question])
 question_openai_vectors: t.List[List[float]]
 # print(question_openai_vectors)
 # print(type(question_openai_vectors))
@@ -35,7 +35,7 @@ for question_vector in question_openai_vectors:
         #     )
         # ]
         # ),
-        limit=10
+        limit=5
     )
 
 print(results)
