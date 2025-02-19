@@ -47,7 +47,7 @@ system = """You are a helpful assistant to provide relevence score based on how 
             The score is within the range of 0 to 1."""
 
 saved_chunks = []
-text_collection = []
+
 for question_key, question_value in question.items():
     question_openai_vectors = embeddings.embed_documents(question_value)
     question_openai_vectors: t.List[List[float]]
@@ -63,20 +63,20 @@ for question_key, question_value in question.items():
             limit=3
         )
         relevence_score_open_ai= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=str(search_results))])
-        # print('search_results',search_results)
+        print('search_results',search_results)
 
         # print(type(search_results))
-        # print(relevence_score_open_ai)
+        print(relevence_score_open_ai)
         # raise ValueError
-        
-        ## for index_result, result in enumerate(search_results.points): #search_results有三個, result等於每一個scoredpoint
+        text_collection = []
+        for result in search_results.points: #search_results有三個, result等於每一個scoredpoint
             
             # print('index_result', index_result)
             # print('single_result', result)
             # print('type of result', type(result))
             # print('single_result_text',result.payload["text"])
 
-            ##text_collection.append(result.payload["text"])
+            text_collection.append(result.payload["text"])
        
         # print(text_collection)
         # raise ValueError
@@ -86,16 +86,22 @@ for question_key, question_value in question.items():
         #         print("result0",result[0], "result1",result[1])        
         #         raise ValueError
 
-
         saved_chunks.append({
             "question": question_value[question_index],
-            "text": search_results,
-            # or result["payload"]["text"]
-            "score": relevence_score_open_ai
+            "text": text_collection,
+            "score": str(relevence_score_open_ai)
             })
-        
 
-print(saved_chunks)
+        # saved_chunks.append({
+        #     "question": question_value[question_index],
+        #     "text": search_results,
+        #     #  result.payload["text"] or result["payload"]["text"]
+        #     "score": relevence_score_open_ai
+        #     })
+        
+for chunk in saved_chunks:
+    print(chunk)
+# print(saved_chunks)
 
 
 #search
