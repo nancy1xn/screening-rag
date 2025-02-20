@@ -21,7 +21,7 @@ original_question = {
                 f"q1_1 When was the company {subject} founded?",
                 f"q1_2 Which country is the company {subject} headquartered in?",
                 f"q1_3 What is the stock ticker of Binance or its listing status? Please provide only relevant details.", #改問題因為stock ticker score原本不準確, stock ticker可能還是得手動查
-                f"q1_4 What type of business does the company {subject} provide?"
+                f"q1_4 What type of business does the company {subject} provide?",
             ],
             "Q2 Adverse Information Report Headline (ordered by timeline)": [
                 f"q2_1 Has the company {subject} committed any crimes?",
@@ -63,9 +63,9 @@ for question_key, question_value in original_question.items():
         )
         relevence_score_open_ai= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=str(search_results))]+[HumanMessage(content=str(question_value[question_index]))])
         
-        # print('original_question ',question_value[question_index])
-        # print('search_results',search_results)
-        # print(relevence_score_open_ai)
+        print('original_question ',question_value[question_index])
+        print('search_results',search_results)
+        print(relevence_score_open_ai)
 
         text_collection = [] #注意每次三個蒐集完都要歸零不然會一直累積
         for result in search_results.points: #search results是QueryReponse type 要先用point取出attribute, search_results有三個, result等於每一個scoredpoint
