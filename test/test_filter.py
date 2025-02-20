@@ -4,53 +4,18 @@ import json
 import typing as t
 from newsplease.NewsArticle import NewsArticle
 from newsplease import NewsPlease
-from math import ceil
 import MySQLdb
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.load import dumps, loads
- 
-class SortingBy(str, Enum):
-    NEWEST = "newest"
-    RELEVANCY = "relevance"
-    
-def get_cnn_news(
-    keyword: str,
-    amount: int,
-    sort_by: SortingBy,
-) -> t.Iterable[NewsArticle]:
+from pydantic import BaseModel, Field
+from langchain_core.messages import SystemMessage, HumanMessage
 
-    count = 0
-    page = 1
-    news_start_from = 0
-    size_per_page = 3
-  
+# Define a pydantic model to enforce the output structure
 
-    while page <= ceil(amount / size_per_page) and count < amount:
-        web = requests.get(
-            'https://search.prod.di.api.cnn.io/content', 
-            params={
-                'q': keyword,
-                'size': size_per_page,
-                'sort': sort_by,
-                'from': news_start_from,
-                'page':page,
-                'request_id':'stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e',
-                'site':'cnn'
-            }
-        ) 
-        
-        news_collection = web.json().get("result")
-        for i , news in enumerate(news_collection):
-            if news["type"] == "VideoObject":
-                continue
-            url = news["path"]          
-            article = NewsPlease.from_url(url)
-            prompt_template = ChatPromptTemplate([
-            ("user", """
-            You are a helpful assistant to determine if the news mentions the search object (input keyword) that is related to financial crime.
+class IsAdverseMedia(BaseModel):
+    result: bool = Field(
+        description="""You are a helpful assistant to determine if the news mentions the search object (input keyword) that is related to financial crime.
             Please only return as format boolean (True/False) and determine whether the news related to financial crime as per the below criteria committed by the search object (input keyword).
 
             (1) If the news is related to financial crime, please return boolean: True
@@ -82,51 +47,67 @@ def get_cnn_news(
             **Search Object**:
             The search object refers to the keyword used to search for relevant news. In this case, it would be the term provided via a search request, for example:
             `requests.get('https://search.prod.di.api.cnn.io/content', params={{'q': keyword}})`
-            """),
-            MessagesPlaceholder("msgs")
-            ])
+            """ )
+# Create an instance of the model and enforce the output structure
+model = ChatOpenAI(model="gpt-4o", temperature=0) 
+structured_model = model.with_structured_output(IsAdverseMedia)
 
-            llm = ChatOpenAI(model="o1-mini")
-            chain = LLMChain(llm=llm,prompt=prompt_template,verbose=True)
-            message = chain.invoke({"msgs":[HumanMessage(content=str(article.get_serializable_dict()['maintext']))]})
-            if "False" in message.values():
-                message.clear()
-            elif "False." in message.values():
-                message.clear()
-            else:
-                yield article.get_serializable_dict()
-                # news_article_object_collection.append(article.get_serializable_dict())
-                count +=1                
-            # print(f'count{count}')
+# Define the system prompt
+system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime, please return boolean: True. If the news is not related to financial crime, please return boolean: False"""
+
+class SortingBy(str, Enum):
+    NEWEST = "newest"
+    RELEVANCY = "relevance"
+
+def get_cnn_news(
+    keyword: str,
+    amount: int,
+    sort_by: SortingBy,
+) -> t.Iterable[NewsArticle]:
+
+    count = 0
+    page = 1
+    news_start_from = 0
+    size_per_page = 3
+  
+
+    # while page <= ceil(amount / size_per_page) and count < amount:
+    while count < amount:
+        web = requests.get(
+            'https://search.prod.di.api.cnn.io/content', 
+            params={
+                'q': keyword,
+                'size': size_per_page,
+                'sort': sort_by,
+                'from': news_start_from,
+                'page':page,
+                'request_id':'stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e',
+                'site':'cnn'
+            }
+        ) 
+        
+        news_collection = web.json().get("result")
+        for i , news in enumerate(news_collection):
+            if news["type"] == "VideoObject":
+                continue
+            url = news["path"]          
+            article = NewsPlease.from_url(url)
+            is_adverse_media= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])])
+            if is_adverse_media.result==True:
+                 yield article.get_serializable_dict()
+                 count +=1                
             if count>=amount:
                 break
-
-        # print(f'page{page} successfully processed')
         page += 1
         news_start_from += size_per_page
 
-    # with open("article_filter2.json", "w") as file:
-    #     json.dump(news_article_object_collection, file, indent=4)
-
-get_news = get_cnn_news('Binance financial crime', 50, SortingBy.RELEVANCY)
-
-# with open("article_filter2.json", "r") as file:
-#     news_article_collection = json.load(file)
+get_news = get_cnn_news('Binance financial crime',  30, SortingBy.RELEVANCY)
 
 db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
 cur=db.cursor()
 # cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
-# cur.execute("DROP TABLE CNN_NEWS;")
-# cur.execute("CREATE TABLE CNN_NEWS (Article_PK BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(Article_PK));")
-
-# cur.execute("CREATE TABLE CNN_NEWS_TEST (title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300) );")
-
-# cur.execute("DESCRIBE CNN_NEWS;")
-# myresult = cur.fetchall()
-# for x in myresult:
-#     print(x)
-
-# for news_article in news_article_collection:
+cur.execute("DROP TABLE CNN_NEWS;")
+cur.execute("CREATE TABLE CNN_NEWS (ID_A BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(ID_A));")
 
 for news_article in get_news:
     cur.execute(
