@@ -96,7 +96,7 @@ def get_cnn_news(
             else:
                 yield article.get_serializable_dict()
                 # news_article_object_collection.append(article.get_serializable_dict())
-            count +=1                
+                count +=1                
             # print(f'count{count}')
             if count>=amount:
                 break
@@ -108,7 +108,7 @@ def get_cnn_news(
     # with open("article_filter2.json", "w") as file:
     #     json.dump(news_article_object_collection, file, indent=4)
 
-get_news = get_cnn_news('putin financial crime', 2, SortingBy.RELEVANCY)
+get_news = get_cnn_news('Binance financial crime', 50, SortingBy.RELEVANCY)
 
 # with open("article_filter2.json", "r") as file:
 #     news_article_collection = json.load(file)
@@ -117,7 +117,7 @@ db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",data
 cur=db.cursor()
 # cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
 # cur.execute("DROP TABLE CNN_NEWS;")
-cur.execute("CREATE TABLE CNN_NEWS (Article_PK BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(Article_PK));")
+# cur.execute("CREATE TABLE CNN_NEWS (Article_PK BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(Article_PK));")
 
 # cur.execute("CREATE TABLE CNN_NEWS_TEST (title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300) );")
 
