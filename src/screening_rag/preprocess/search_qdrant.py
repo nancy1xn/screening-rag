@@ -16,7 +16,7 @@ embeddings = OpenAIEmbeddings(
 )
 client = QdrantClient(url="http://localhost:6333")
 subject = "Binance"
-question = {
+original_question = {
             "Q1 Subject Background": [
                 f"q1_1 When was the company {subject} founded?",
                 f"q1_2 Which country is the company {subject} headquartered in?",
@@ -32,7 +32,7 @@ question = {
 # Define a pydantic model to enforce the output structure
 class Relevance(BaseModel):
     score: float = Field(
-                         description="""Please assign a relevance score based on how much useful content the answer contains in relation to the original question. 
+                         description="""Please assign a relevance score based on how much useful content the answer contains in relation to the corresponding original question. 
                                         A score of 0 indicates low relevance, while 1 indicates high relevance. 
                                         A score below 5 indicates that the answer lacks sufficient valuable content and may be disregarded, 
                                         while a score of 5 or higher suggests the answer contains enough relevant information to be considered
@@ -50,7 +50,7 @@ system = """You are a helpful assistant to provide relevence score based on how 
 saved_chunks = []
 
 
-for question_key, question_value in question.items():
+for question_key, question_value in original_question.items():
     question_openai_vectors = embeddings.embed_documents(question_value)
     question_openai_vectors: t.List[List[float]]
 
@@ -61,7 +61,9 @@ for question_key, question_value in question.items():
             query=question_vector,
             limit=3
         )
-        relevence_score_open_ai= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=str(search_results))])
+        relevence_score_open_ai= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=str(search_results))]+[HumanMessage(content=str(question_value[question_index]))])
+        
+        # print('original_question ',question_value[question_index])
         # print('search_results',search_results)
         # print(relevence_score_open_ai)
 
