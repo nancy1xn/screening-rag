@@ -100,9 +100,9 @@ get_news = get_cnn_news('Binance financial crime',  30, SortingBy.RELEVANCY)
 
 db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
 cur=db.cursor()
-# cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
+cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
 cur.execute("DROP TABLE CNN_NEWS;")
-cur.execute("CREATE TABLE CNN_NEWS (ID_A BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(ID_A));") ""
+cur.execute("CREATE TABLE CNN_NEWS (ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(ID));") 
 
 for news_article in get_news:
     cur.execute(
