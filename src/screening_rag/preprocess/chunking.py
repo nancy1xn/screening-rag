@@ -11,13 +11,13 @@ cur=db.cursor()
 # cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
 cur.execute("""
     CREATE TABLE CHUNK_CNN_NEWS (
-        ID_CH BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         text VARCHAR(1000),
         start_position INT UNSIGNED,
         end_position INT UNSIGNED,
-        ID_A BIGINT UNSIGNED NOT NULL,
-        PRIMARY KEY(ID_CH),
-        FOREIGN KEY (ID_A) REFERENCES CNN_NEWS(ID_A)
+        parent_article_id BIGINT UNSIGNED NOT NULL,
+        PRIMARY KEY(ID),
+        FOREIGN KEY (parent_article_id) REFERENCES CNN_NEWS(ID)
     );
 """)
 
@@ -37,14 +37,14 @@ def chunk_text(text:str) -> t.Iterable[str]:
 
 db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
 cur=db.cursor()
-cur.execute("select maintext, ID_A from my_database.CNN_NEWS")
+cur.execute("select maintext, ID from my_database.CNN_NEWS")
 for row in cur.fetchall():
     row: t.Tuple
     maintext, article_pk = row
     chunks_example = chunk_text(maintext)
     for chunk in chunks_example:
             cur.execute(
-                """INSERT INTO my_database.CHUNK_CNN_NEWS (text, ID_A)
+                """INSERT INTO my_database.CHUNK_CNN_NEWS (text, parent_article_id)
                 VALUES (%s, %s)""",
                 (chunk,
                 article_pk)
