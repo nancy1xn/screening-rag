@@ -14,6 +14,15 @@ from langchain_core.messages import SystemMessage, HumanMessage
 # Define a pydantic model to enforce the output structure
 
 class IsAdverseMedia(BaseModel):
+    """Check if the media content is considered as adverse media.
+
+    Define the guidelines for checking if the media contents is an adverse media related to financial crime.
+    The result will be 'True' if adverse media is found, and 'False' otherwise.
+
+    Attributes:
+            result: A boolean indicating if the media content is an adverse media or not.
+    """
+
     result: bool = Field(
         description="""You are a helpful assistant to determine if the news mentions the search object (input keyword) that is related to financial crime.
             Please only return as format boolean (True/False) and determine whether the news related to financial crime as per the below criteria committed by the search object (input keyword).
@@ -48,6 +57,7 @@ class IsAdverseMedia(BaseModel):
             The search object refers to the keyword used to search for relevant news. In this case, it would be the term provided via a search request, for example:
             `requests.get('https://search.prod.di.api.cnn.io/content', params={{'q': keyword}})`
             """ )
+
 # Create an instance of the model and enforce the output structure
 model = ChatOpenAI(model="gpt-4o", temperature=0) 
 structured_model = model.with_structured_output(IsAdverseMedia)
@@ -56,6 +66,14 @@ structured_model = model.with_structured_output(IsAdverseMedia)
 system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime, please return boolean: True. If the news is not related to financial crime, please return boolean: False"""
 
 class SortingBy(str, Enum):
+    """Represent different sorting logics for media.
+
+    Use the enum to categorize sorting logics for media by "newest" or "relevance". 
+
+    Attributes:
+        NEWEST: The search criteria to sort media by the latest to the oldest.
+        RELEVANCY: The search criteria to sort media by the most relevant to the least relevant. 
+    """
     NEWEST = "newest"
     RELEVANCY = "relevance"
 
@@ -64,7 +82,16 @@ def get_cnn_news(
     amount: int,
     sort_by: SortingBy,
 ) -> t.Iterable[NewsArticle]:
-
+    """Retrieve NewsArticle Objects related to financial crime.
+    
+    Yield each NewsArticle Object from CNN's official website and that are related to financial crime one at a time, allowing iteration over each NewsArticle Object.
+    
+    Args:
+        keyword(str): The keyword used to search CNN news.
+        amount(int): The number of articles to be yielded.
+        sort_by(SortingBy): The search critera to sort media by "newest" or "relevance". If SortingBy.NEWEST: Sort media by the latest to the oldest.
+                            If SortingBy.RELEVANCY: Sort media by the most relevant to the least relevant. 
+    """
     count = 0
     page = 1
     size_per_page = 3
@@ -100,9 +127,9 @@ get_news = get_cnn_news('Binance financial crime',  30, SortingBy.RELEVANCY)
 
 db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
 cur=db.cursor()
-cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
-cur.execute("DROP TABLE CNN_NEWS;")
-cur.execute("CREATE TABLE CNN_NEWS (ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(ID));") 
+# cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
+# cur.execute("DROP TABLE CNN_NEWS;")
+# cur.execute("CREATE TABLE CNN_NEWS (ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(ID));") 
 
 for news_article in get_news:
     cur.execute(
