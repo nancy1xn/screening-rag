@@ -23,7 +23,7 @@ client.create_collection(
 
 db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
 cur=db.cursor()
-cur.execute("select ID_CH, text, ID_A from my_database.CHUNK_CNN_NEWS")
+cur.execute("select ID, text, parent_article_id from my_database.CHUNK_CNN_NEWS")
 #只embed text, 其他插入payload
 unique_id = 0
 for row in cur.fetchall():
@@ -40,7 +40,7 @@ for row in cur.fetchall():
                     models.PointStruct(
                         id=unique_id,
                         payload={
-                        "id_chunk": pk_chunk,
+                        "id": pk_chunk,
                         "text": text,
                         "article_id": article_pk
                         },
