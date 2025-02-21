@@ -32,11 +32,19 @@ original_question = {
 }
 # Define a pydantic model to enforce the output structure
 class Relevance(BaseModel):
+    """Assign a relevance score based on the relevance between the answer and the quesion.
+
+    Define the guidelines for assinging a relevance score based on how much useful content the answer contains in relation to the corresponding original question. 
+    A score of 0 indicates low relevance, while 1 indicates high relevance. 
+
+    Attributes:
+            result: A float between 0 and 1 represents how much the content of the answer is relevant to the corresponding question. 
+    """
     score: float = Field(
                          description="""Please assign a relevance score based on how much useful content the answer contains in relation to the corresponding original question. 
                                         A score of 0 indicates low relevance, while 1 indicates high relevance. 
-                                        A score below 5 indicates that the answer lacks sufficient valuable content and may be disregarded, 
-                                        while a score of 5 or higher suggests the answer contains enough relevant information to be considered
+                                        A score below 0.5 indicates that the answer lacks sufficient valuable content and may be disregarded, 
+                                        while a score of 0.5 or higher suggests the answer contains enough relevant information to be considered
                                         """
                     )
 
