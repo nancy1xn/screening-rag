@@ -9,19 +9,27 @@ import MySQLdb
 db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
 cur=db.cursor()
 # cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
-cur.execute("""
-    CREATE TABLE CHUNK_CNN_NEWS (
-        ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        text VARCHAR(1000),
-        start_position INT UNSIGNED,
-        end_position INT UNSIGNED,
-        parent_article_id BIGINT UNSIGNED NOT NULL,
-        PRIMARY KEY(ID),
-        FOREIGN KEY (parent_article_id) REFERENCES CNN_NEWS(ID)
-    );
-""")
+# cur.execute("""
+#     CREATE TABLE CHUNK_CNN_NEWS (
+#         ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+#         text VARCHAR(1000),
+#         start_position INT UNSIGNED,
+#         end_position INT UNSIGNED,
+#         parent_article_id BIGINT UNSIGNED NOT NULL,
+#         PRIMARY KEY(ID),
+#         FOREIGN KEY (parent_article_id) REFERENCES CNN_NEWS(ID)
+#     );
+# """)
 
 def chunk_text(text:str) -> t.Iterable[str]:
+    """Split text into several chunks which are smaller units
+    
+    Recursively split the text by characters, and then use a sentence model tokenizer to further split the text into chunk tokens. 
+    Chunks are yielded one group at a time ,allowing iteration over each chunks group.
+    
+    Args:
+        text(str): The text to be split into chunks.
+    """
     character_splitter = RecursiveCharacterTextSplitter(
         separators=["\n"],
         chunk_size=256,
