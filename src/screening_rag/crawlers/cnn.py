@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 
 # Define a pydantic model to enforce the output structure
-
 class IsAdverseMedia(BaseModel):
     """Check if the media content is considered as adverse media.
 
@@ -20,7 +19,7 @@ class IsAdverseMedia(BaseModel):
     The result will be 'True' if adverse media is found, and 'False' otherwise.
 
     Attributes:
-            result: A boolean indicating if the media content is an adverse media or not.
+        result: A boolean indicating if the media content is an adverse media or not.
     """
 
     result: bool = Field(
@@ -84,7 +83,7 @@ def get_cnn_news(
 ) -> t.Iterable[NewsArticle]:
     """Retrieve NewsArticle Objects related to financial crime.
     
-    Yield each NewsArticle Object from CNN's official website and that are related to financial crime one at a time, allowing iteration over each NewsArticle Object.
+    Yield each NewsArticle Object based on CNN's official website and that are related to financial crime one at a time, allowing iteration over each NewsArticle Object.
     
     Args:
         keyword(str): The keyword used to search CNN news.
@@ -92,6 +91,7 @@ def get_cnn_news(
         sort_by(SortingBy): The search critera to sort media by "newest" or "relevance". If SortingBy.NEWEST: Sort media by the latest to the oldest.
                             If SortingBy.RELEVANCY: Sort media by the most relevant to the least relevant. 
     """
+
     count = 0
     page = 1
     size_per_page = 3
@@ -117,34 +117,44 @@ def get_cnn_news(
             article = NewsPlease.from_url(url)
             is_adverse_media= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])])
             if is_adverse_media.result==True:
-                 yield article.get_serializable_dict()
+                 yield article
                  count +=1                
             if count>=amount:
                 break
         page += 1
 
-get_news = get_cnn_news('Binance financial crime',  30, SortingBy.RELEVANCY)
 
-db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-cur=db.cursor()
-# cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
-# cur.execute("DROP TABLE CNN_NEWS;")
-# cur.execute("CREATE TABLE CNN_NEWS (ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(ID));") 
+if __name__ == "__main__":
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("keyword", help="The keyword to search on CNN", type=str)
+    parser.add_argument("amount", help="The amount of the crawled articles", type=int)
+    parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default="RELEVANCY")
+    args = parser.parse_args()
 
-for news_article in get_news:
-    cur.execute(
-            """INSERT INTO my_database.CNN_NEWS (title, description, maintext, date_publish, url)
-            VALUES (%s, %s, %s, %s, %s)""",
-            (news_article["title"], 
-             news_article["description"], 
-             news_article["maintext"], 
-             news_article["date_publish"],
-             news_article["url"])
-             )
-    db.commit()
-cur.execute("select * from my_database.CNN_NEWS")
-for row in cur.fetchall():
-    print(row)
+    get_news = get_cnn_news(args.keyword,  args.amount, args.sort_by)
+
+    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
+    cur=db.cursor()
+
+    # # cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
+    # # cur.execute("DROP TABLE CNN_NEWS;")
+    # # cur.execute("CREATE TABLE CNN_NEWS (ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(ID));") 
+
+    for news_article in get_news:
+        cur.execute(
+                """INSERT INTO my_database.CNN_NEWS (title, description, maintext, date_publish, url)
+                VALUES (%s, %s, %s, %s, %s)""",
+                (news_article.title, 
+                news_article.description, 
+                news_article.maintext, 
+                news_article.date_publish,
+                news_article.url)
+                )
+        db.commit()
+    cur.execute("select * from my_database.CNN_NEWS")
+    for row in cur.fetchall():
+        print(row)
 
 
 
