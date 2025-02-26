@@ -4,18 +4,20 @@ import numpy as np
 import MySQLdb
 from langchain_openai import OpenAIEmbeddings
 
+
+
 embeddings = OpenAIEmbeddings(
     model="text-embedding-3-large",
     dimensions=3072
 )
 
-# create collections
+# # create collections
 from qdrant_client import QdrantClient, models
 client = QdrantClient(url="http://localhost:6333")
-client.create_collection(
-    collection_name="cnn_news_chunk_vectors",
-    vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
-)
+# client.create_collection(
+#     collection_name="cnn_news_chunk_vectors",
+#     vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
+# )
 
 # assert client.collection_exists(collection_name="cnn_news_chunk_vectors")
 # collection_info = client.get_collection("cnn_news_chunk_vectors")
