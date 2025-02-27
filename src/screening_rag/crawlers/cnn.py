@@ -129,10 +129,10 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("keyword", help="The keyword to search on CNN", type=str)
     parser.add_argument("amount", help="The amount of the crawled articles", type=int)
-    parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default="RELEVANCY")
+    parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default=SortingBy.RELEVANCY)
     args = parser.parse_args()
 
-    get_news = get_cnn_news(args.keyword,  args.amount, args.sort_by)
+    get_news = get_cnn_news(args.keyword, args.amount, args.sort_by)
 
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
     cur=db.cursor()
