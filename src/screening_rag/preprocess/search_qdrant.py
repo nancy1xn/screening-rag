@@ -9,6 +9,8 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from typing import List
 from qdrant_client import QdrantClient, models
+import re
+import MySQLdb
 
 embeddings = OpenAIEmbeddings(
     model="text-embedding-3-large",
@@ -80,7 +82,7 @@ for question_key, question_value in original_question.items():
         for result in search_results.points: #search results是QueryReponse type 要先用point取出attribute, search_results有三個, result等於每一個scoredpoint
             if relevence_score_open_ai.score >=0.5:
                 text_collection.append(result.payload["text"])
-                text_collection.append(f'[article_id:{result.payload["article_id"]}]')
+                text_collection.append(f'[article_id:{result.payload["article_id"]}]') #加上article_id在每個文章後面
             else:
                 text_collection.append("None")
 
@@ -89,13 +91,6 @@ for question_key, question_value in original_question.items():
             "text": text_collection,
             "score": relevence_score_open_ai.score,
             })
-
-        # saved_chunks.append({
-        #     "question": question_value[question_index],
-        #     "text": search_results,
-        #     #  result.payload["text"] or result["payload"]["text"] #因為是QueryResponse不能用[]來取直, 要先取points, 再取Nametuple-payload["text"]
-        #     "score": relevence_score_open_ai
-        #     })
         
 for chunk in saved_chunks:
     print(chunk)
@@ -136,6 +131,10 @@ structured_model = model.with_structured_output(ChatReport)
 system_ans = """You are a helpful assistant to generate the final answer in relation to the corresponding original question according to the chunks materials from "text" collection."""
 
 saved_answers = []
+
+db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
+cur=db.cursor()
+
 for chunk in saved_chunks:
     final_ans= structured_model.invoke([SystemMessage(content=system_ans)]+[HumanMessage(content=str(chunk))]) #把original_question+searched_chunks+score一起丟入
     print(final_ans)
@@ -146,6 +145,19 @@ for chunk in saved_chunks:
             # "article & article_id":
             })
     
-
 for ans in saved_answers:
     print(ans) 
+
+    match = re.findall(r'\[article_id:(\d+)\]', str(ans))
+    if match:
+        # print(f"article_id:{match}")
+        for id in match:
+            num=int(id)
+            query = "select ID, title, url from my_database.CNN_NEWS where ID = %s"
+            cur.execute(query, (num,))
+            for row in cur.fetchall():
+                print(row)
+            # print(int(id))
+
+    else: 
+        print("Not found article_id")
