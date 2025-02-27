@@ -107,7 +107,7 @@ class ChatReport(BaseModel):
                        Question:'q1_2 Which country is the company Google headquartered in?'
                        Answer: 'Google's headquarters is located in Mountain View, California, USA.[article_id:2]' 
 
-                       Question:'q1_3 What is the stock ticker of Google or its listing status? Please provide only relevant details.'
+                       Question:'q1_3 What is the stock ticker of Google or its listing status? Please provide only relevant details. If it's not a public listed company, please answer 'Google is not a public listed company.'
                        Answer: 'Google's parent company, Alphabet Inc., is listed on the stock market. The stock ticker for Alphabet is GOOGL & GOOG traded on the NASDAQ exchange in USA [article_id:3]'
 
                        Question:'q1_4 What type of business does the company Google provide?'
@@ -140,13 +140,38 @@ for chunk in saved_chunks:
     print(final_ans)
 
     saved_answers.append({
-            "original question": chunk['original_question'],
+            "original_question": chunk['original_question'],
             "final_answer": final_ans.result,
             # "article & article_id":
             })
-    
-for ans in saved_answers:
-    print(ans) 
+
+group_1=[]
+answers_dict_1 = []
+appendix_dict_1 =[]
+group_2=[]
+answers_dict_2 = []
+appendix_dict_2 =[]
+
+def get_group_for_question(question):
+    # 分組
+    if question in ['q1_1 When was the company Binance founded?', 
+                    'q1_2 Which country is the company Binance headquartered in?', 
+                    'q1_3 What is the stock ticker of Binance or its listing status? Please provide only relevant details.',
+                    'q1_4 What type of business does the company Binance provide?']:
+        return 1
+    elif question in ['q2_1 Has the company Binance been accused of committing any financial crimes?',
+                      'q2_2 When did the company Binance commit a financial crime (the specific date, month, year)?',
+                      'q2_3 What type of financial crime is the company Binance accused of committing?',
+                      'q2_4 Which laws or regulations are relevant to this financial crime accused of committing by Binance?']:
+        return 2
+
+for ans in saved_answers:   
+    # print(ans) 
+    group = get_group_for_question(ans['original_question'])
+    if group ==1:
+        answers_dict_1.append(ans['final_answer'])
+    elif group ==2:
+        answers_dict_2.append(ans['final_answer'])
 
     match = re.findall(r'\[article_id:(\d+)\]', str(ans))
     if match:
@@ -156,8 +181,21 @@ for ans in saved_answers:
             query = "select ID, title, url from my_database.CNN_NEWS where ID = %s"
             cur.execute(query, (num,))
             for row in cur.fetchall():
-                print(row)
-            # print(int(id))
+                # print(row)
 
+                group = get_group_for_question(ans['original_question'])
+                if group ==1:
+                    appendix_dict_1.append(row)
+                elif group ==2:
+                    appendix_dict_2.append(row)
+                
     else: 
         print("Not found article_id")
+    
+# print("Group 1:", group_1)
+# print("Group 2:", group_2)
+
+print("Answer 1:", answers_dict_1)
+print("Appendix 1:", appendix_dict_1)
+print("Answer 2:", answers_dict_2)
+print("Appendix 2:", appendix_dict_2)
