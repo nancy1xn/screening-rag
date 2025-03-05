@@ -61,7 +61,7 @@ system = """You are a helpful assistant to provide relevence score based on how 
 
 saved_chunks = []
 
-for question_key, question_value in original_question.items():
+for main_question_index, (question_key,question_value) in enumerate(original_question.items()):
     question_openai_vectors = embeddings.embed_documents(question_value)
     question_openai_vectors: t.List[List[float]]
 
@@ -86,14 +86,45 @@ for question_key, question_value in original_question.items():
             else:
                 text_collection.append("None")
 
-        saved_chunks.append({
-            "original_question": question_value[question_index],
-            "text": text_collection,
-            "score": relevence_score_open_ai.score,
-            })
+        class RelatedChunkCollection:
+            main_question:int
+            sub_question:int
+            original_question:str
+            text_collection: List[str]
+            score= float
+
+            def __init__(self, main_question, sub_question, original_question, text_collection, score):
+                self.main_question = main_question
+                self.sub_question = sub_question
+                self.original_question =original_question
+                self.text_collection = text_collection
+                self.score = score
+                
+        # r= RelatedChunkCollection(
+        #     text_collection=text_collection,
+        #     score=relevence_score_open_ai.score,
+        # )
+        # r.text_collection
+
+        saved_chunks.append(RelatedChunkCollection(
+            main_question=main_question_index,
+            sub_question=question_index,
+            original_question= question_value[question_index],
+            text_collection=text_collection,
+            score=relevence_score_open_ai.score,
+        ))
+        # saved_chunks.append({
+        #     "original_question": question_value[question_index],
+        #     "text": text_collection,
+        #     "score": relevence_score_open_ai.score,
+        #     })
         
 for chunk in saved_chunks:
-    print(chunk)
+    print(chunk.main_question)
+    print(chunk.sub_question)
+    print(chunk.original_question)
+    print(chunk.text_collection)
+    print(chunk.score)
 
 class ChatReport(BaseModel):
     result: str = Field(
@@ -136,41 +167,48 @@ db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",data
 cur=db.cursor()
 
 for chunk in saved_chunks:
-    final_ans= structured_model.invoke([SystemMessage(content=system_ans)]+[HumanMessage(content=str(chunk))]) #把original_question+searched_chunks+score一起丟入
+    final_ans= structured_model.invoke([SystemMessage(content=system_ans)]+[HumanMessage(content=str(chunk.text_collection))]+[HumanMessage(content=str(chunk.original_question))]) #把original_question+searched_chunks+score一起丟入
     print(final_ans)
 
     saved_answers.append({
-            "original_question": chunk['original_question'],
+            "main_question": chunk.main_question,
+            "sub_question": chunk.sub_question,
             "final_answer": final_ans.result,
             # "article & article_id":
             })
 
-group_1=[]
+# # group_1=[]
 answers_dict_1 = []
 appendix_dict_1 =[]
-group_2=[]
+# # group_2=[]
 answers_dict_2 = []
 appendix_dict_2 =[]
 
-def get_group_for_question(question):
-    # 分組
-    if question in ['q1_1 When was the company Binance founded?', 
-                    'q1_2 Which country is the company Binance headquartered in?', 
-                    'q1_3 What is the stock ticker of Binance or its listing status? Please provide only relevant details.',
-                    'q1_4 What type of business does the company Binance provide?']:
-        return 1
-    elif question in ['q2_1 Has the company Binance been accused of committing any financial crimes?',
-                      'q2_2 When did the company Binance commit a financial crime (the specific date, month, year)?',
-                      'q2_3 What type of financial crime is the company Binance accused of committing?',
-                      'q2_4 Which laws or regulations are relevant to this financial crime accused of committing by Binance?']:
-        return 2
+# def get_group_for_question(question):
+#     # 分組
+#     if question in ['q1_1 When was the company Binance founded?', 
+#                     'q1_2 Which country is the company Binance headquartered in?', 
+#                     'q1_3 What is the stock ticker of Binance or its listing status? Please provide only relevant details.',
+#                     'q1_4 What type of business does the company Binance provide?']:
+#         return 1
+#     elif question in ['q2_1 Has the company Binance been accused of committing any financial crimes?',
+#                       'q2_2 When did the company Binance commit a financial crime (the specific date, month, year)?',
+#                       'q2_3 What type of financial crime is the company Binance accused of committing?',
+#                       'q2_4 Which laws or regulations are relevant to this financial crime accused of committing by Binance?']:
+#         return 2
 
 for ans in saved_answers:   
-    # print(ans) 
-    group = get_group_for_question(ans['original_question'])
-    if group ==1:
+    print(ans) 
+
+    # group = get_group_for_question(ans['original_question'])
+    # if group ==1:
+    #     answers_dict_1.append(ans['final_answer'])
+    # elif group ==2:
+    #     answers_dict_2.append(ans['final_answer'])
+    
+    if ans['main_question'] ==0:
         answers_dict_1.append(ans['final_answer'])
-    elif group ==2:
+    elif ans['main_question'] ==1:
         answers_dict_2.append(ans['final_answer'])
 
     match = re.findall(r'\[article_id:(\d+)\]', str(ans))
@@ -182,11 +220,10 @@ for ans in saved_answers:
             cur.execute(query, (num,))
             for row in cur.fetchall():
                 # print(row)
-
-                group = get_group_for_question(ans['original_question'])
-                if group ==1:
+                # group = get_group_for_question(ans['original_question'])
+                if ans['main_question'] ==0:
                     appendix_dict_1.append(row)
-                elif group ==2:
+                elif ans['main_question'] ==1:
                     appendix_dict_2.append(row)
                 
     else: 
@@ -195,7 +232,7 @@ for ans in saved_answers:
 # print("Group 1:", group_1)
 # print("Group 2:", group_2)
 
-print("Answer 1:", answers_dict_1)
-print("Appendix 1:", appendix_dict_1)
-print("Answer 2:", answers_dict_2)
-print("Appendix 2:", appendix_dict_2)
+print("Client Background:", answers_dict_1)
+print("Appendix of Client Background:", appendix_dict_1)
+print("Adverse Information Report Headline:", answers_dict_2)
+print("Appendix of Adverse Information Report Headline:", appendix_dict_2)
