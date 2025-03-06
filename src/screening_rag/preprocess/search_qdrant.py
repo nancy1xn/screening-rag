@@ -54,6 +54,8 @@ def gen_report(
                 ]
     }
 
+
+
     # Define a pydantic model to enforce the output structure
     class Relevance(BaseModel):
         """Assign a relevance score based on the relevance between the answer and the quesion.
@@ -184,13 +186,17 @@ def gen_report(
             description="""(1)Help generate the final answer in relation to the corresponding original question according to the chunks materials from "text" collection. 
                         (2)Include the corresponding [article_id] at the end of each sentence to indicate the source of the chunk.
                         (3)In Question 2, you will see chunks from multiple corresponding[article_id]. Please follow these guidelines for answering:
-                                **Each answer must strictly come from only one corresponeding [article_id].Do not mix information from different corresponding [article_id].**
+                                **Each answer must strictly come from only one corresponeding [article_id]. Do not mix information from different corresponding [article_id].**
                                 1. **Use only the information relevant to the specific question** from each corresponding article. 
                                 2. **DO NOT COMBINE INFORMATION FROM DIFFERENT CORRESPONDING [article_id] in EACH ANSWER, YET MULIPLE ANSWERS ARE ALLOWED**.
                                 3. EACH ANSWER should be based SOLEY ON ONE SPECIFIC CORRESPONDING [article_id], not from multiple [article_id].
                                 5. If the article does not contain relevant information, leave it blank (do not make up any answer).
                                 6. Except for the blank questions, provide answers from the articles that contain the relevant information for the rest of the specific questions.
-                                7. Please ensure that ALL articles from differnent [article_id] that contains relevant info are included in different answers, not just specific article_ids.
+                                7. Please list all articles related to financial crimes committed or alleged against {subject}, including specific dates, charges, and any relevant laws or regulations. 
+                                   Ensure that every relevant article referenced by the IDs is included, and summarize the financial crimes mentioned in each. 
+                                   If any additional articles or key points are missing, please ensure they are included in your response."
+
+
                                     
                         (4)Please refer to the examples below when generating the answers:
                         
