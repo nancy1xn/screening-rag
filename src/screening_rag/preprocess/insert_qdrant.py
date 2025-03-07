@@ -5,65 +5,55 @@ import MySQLdb
 from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, Field
 
-class Event(BaseModel):
-    time_financial_crime:str
-    summary_financial_crime:str
-    type_financial_crime:str
-    subject_financial_crime:str
-    laws_financial_crime:str
-    enforcement_financial_crime:str
 
-def insertqdrant(summary:Event):
-    embeddings = OpenAIEmbeddings(
-        model="text-embedding-3-large",
-        dimensions=3072
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-large",
+    dimensions=3072
+)
+
+# # create collections
+from qdrant_client import QdrantClient, models
+client = QdrantClient(url="http://localhost:6333")
+client.create_collection(
+    collection_name="summary_cnn_news_vectors",
+    vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
+)
+
+# assert client.collection_exists(collection_name="summary_cnn_news_vectors")
+# collection_info = client.get_collection("summary_cnn_news_vectors")
+# print(collection_info)
+
+db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
+cur=db.cursor()
+
+cur.execute("select ID, time, summary, adverse_info_type, subject, violated_laws, enforcement_action from my_database.SUMMARY_CNN_NEWS")
+
+#只embed text, 其他插入payload
+for crime in cur.fetchall():
+    crime: t.Tuple
+    crime_id, time, summary, adverse_info_type, subject, violated_laws, enforcement_action = crime
+    print(f'one of the row {crime}')
+    crime_openai_vectors = embeddings.embed_documents([str(summary)])
+    crime_openai_vectors: t.List[List[float]]
+    crime = crime_openai_vectors[0]
+    client.upsert(
+        collection_name="summary_cnn_news_vectors",
+            points=[
+                models.PointStruct(
+                    id=crime_id,
+                    payload={
+                    "id": crime_id,
+                    "time": time,
+                    "subject": subject,
+                    "summary": summary,
+                    "adverse_info_type": adverse_info_type,
+                    "violated_laws": violated_laws,
+                    "enforcement_action": enforcement_action,
+                    },
+                    vector=crime,
+                ),
+            ],
     )
-
-    # # create collections
-    from qdrant_client import QdrantClient, models
-    client = QdrantClient(url="http://localhost:6333")
-    # client.create_collection(
-    #     collection_name="cnn_news_tag_vectors",
-    #     vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
-    # )
-
-    # assert client.collection_exists(collection_name="cnn_news_chunk_vectors")
-    # collection_info = client.get_collection("cnn_news_chunk_vectors")
-    # print(collection_info)
-
-    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-    cur=db.cursor()
-    cur.execute("select ID, time, event, type, subject, laws, laws_enforcement from my_database.TAG_CNN_NEWS")
-    #只embed text, 其他插入payload
-    unique_id = 0
-    for row in cur.fetchall():
-        row: t.Tuple
-        pk_tag, time, event, type, subject, laws, laws_enforcement = row
-        print(f'one of the row {row}')
-        event_openai_vectors = embeddings.embed_documents([str(summary)])
-        event_openai_vectors: t.List[List[float]]
-
-        for each_event_openai_vectors in event_openai_vectors:
-            print(f'unique_id:{unique_id}')
-            client.upsert(
-                collection_name="cnn_news_tag_vectors",
-                    points=[
-                        models.PointStruct(
-                            id=unique_id,
-                            payload={
-                            "id": pk_tag,
-                            "time": time,
-                            "subject": subject,
-                            "event": event,
-                            "type": type,
-                            "laws":laws,
-                            "laws_enforcement":laws_enforcement
-                            },
-                            vector=each_event_openai_vectors
-                        ),
-                    ],
-            )
-            unique_id+=1
 
         # print(openai_vectors)
         # print(type(openai_vectors))
@@ -75,7 +65,7 @@ def insertqdrant(summary:Event):
 
     #search
     # results = client.search(
-    #     collection_name="cnn_news",
+    #     collection_name="summary_cnn_news_vectors",
     #     query_vector=openai_vectors[0],
     #     limit=10,
     #     with_vectors=True  # 設置為 True 以返回向量
@@ -83,7 +73,7 @@ def insertqdrant(summary:Event):
     # print(results)
     #retrieve
     # retrieved_point = client.retrieve(
-    #     collection_name="cnn_news_chunk_vectors",
+    #     collection_name="summary_cnn_news_vectors",
     #     ids=[1],
     # )
     # print(retrieved_point)
@@ -93,7 +83,7 @@ def insertqdrant(summary:Event):
     # collection_info = client.get_collection("testing")
     # print(collection_info)
     # results, next_page = client.scroll(
-    #     collection_name="testing",
+    #     collection_name="summary_cnn_news_vectors",
     #     limit=100,                # 每次返回的資料點數量
     #     offset=None,              # 可選的起始偏移量
     #     with_vectors=True,        # 設為 True 來檢索向量
@@ -101,5 +91,5 @@ def insertqdrant(summary:Event):
     # )
     # print(results, next_page)
 
-    #CURL -L -X GET 'http://localhost:6333/collections/cnn_news_tag_vectors/points/1'
-    #curl -X DELETE "http://localhost:6333/collections/cnn_news_tag_vectors"
+    #CURL -L -X GET 'http://localhost:6333/collections/summary_cnn_news_vectors/points/1'
+    #curl -X DELETE "http://localhost:6333/collections/summary_cnn_news_vectors"
