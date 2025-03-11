@@ -13,6 +13,35 @@ import re
 import MySQLdb
 import streamlit as st
 
+ # Define a pydantic model to enforce the output structure
+class Relevance(BaseModel):
+    """Assign a relevance score based on the relevance between the answer and the quesion.
+
+    Define the guidelines for assinging a relevance score based on how much useful content the answer contains in relation to the corresponding original question. 
+    A score of 0 indicates low relevance, while 1 indicates high relevance. 
+
+    Attributes:
+            result: A float between 0 and 1 represents how much the content of the answer is relevant to the corresponding question. 
+    """
+    score: float = Field(
+                        description="""Please assign a relevance score based on how much useful content the answer contains in relation to the corresponding original question. 
+                                        A score of 0 indicates low relevance, while 1 indicates high relevance. 
+                                        A score below 0.5 indicates that the answer lacks sufficient valuable content and may be disregarded, 
+                                        while a score of 0.5 or higher suggests the answer contains enough relevant information to be considered
+                                        """
+                    )
+
+class SubquestionRelatedChunks:
+    sub_question:int
+    original_question:str
+    text_collection: List[str]
+
+    def __init__(self, sub_question, original_question, text_collection):
+        self.sub_question = sub_question
+        self.original_question =original_question
+        self.text_collection = text_collection
+
+
 def gen_report(
     keyword:str    
 ) ->t.Dict[str, List[str]]:
@@ -37,24 +66,19 @@ def gen_report(
         ]
     ]
 
-    # Define a pydantic model to enforce the output structure
-    class Relevance(BaseModel):
-        """Assign a relevance score based on the relevance between the answer and the quesion.
+#Group2
+    # print(original_question[1])
+    # question_openai_vectors_group_2 = embeddings.embed_documents(original_question[1])
+    # question_openai_vectors_group_2: t.List[List[float]]
+    # search_results_group_2 = client.query_points(
+    #            collection_name="summary_cnn_news_vectors",
+    #            query=question_openai_vectors_group_2[0],
+    #            limit=100
+    #        )
+    # for search_result_group_2 in search_results_group_2.points:
+    #     print(search_result_group_2)
 
-        Define the guidelines for assinging a relevance score based on how much useful content the answer contains in relation to the corresponding original question. 
-        A score of 0 indicates low relevance, while 1 indicates high relevance. 
-
-        Attributes:
-                result: A float between 0 and 1 represents how much the content of the answer is relevant to the corresponding question. 
-        """
-        score: float = Field(
-                            description="""Please assign a relevance score based on how much useful content the answer contains in relation to the corresponding original question. 
-                                            A score of 0 indicates low relevance, while 1 indicates high relevance. 
-                                            A score below 0.5 indicates that the answer lacks sufficient valuable content and may be disregarded, 
-                                            while a score of 0.5 or higher suggests the answer contains enough relevant information to be considered
-                                            """
-                        )
-
+#Group1
     # Create an instance of the model and enforce the output structure
     model = ChatOpenAI(model="gpt-4o", temperature=0) 
     structured_model = model.with_structured_output(Relevance)
@@ -64,58 +88,41 @@ def gen_report(
                 The score is within the range of 0 to 1."""
 
     def pass_threshold(qa_data: t.Tuple[str]):
-        sub_question, searched_answer, article_id= qa_data
-        relevence_score_open_ai= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=str(sub_question))]+[HumanMessage(content=str(searched_answer))])
-        # print(relevence_score_open_ai)
-        return relevence_score_open_ai.score>=0.5
+        sub_question, searched_answer, _ = qa_data
+        relevence_score_open_ai= structured_model.invoke([
+            SystemMessage(content=system),
+            HumanMessage(content=str(sub_question)),
+            HumanMessage(content=str(searched_answer)),
+        ])
+        return relevence_score_open_ai.score >= 0.5
 
-    saved_chunks = []
+    saved_chunks_group_1 = []
     for sub_question_index, question_value in enumerate(original_question[0]):
-        # print(question_value)
         question_openai_vectors = embeddings.embed_documents([question_value])
         question_openai_vectors: t.List[List[float]]
-   
-        # arr=np.array(question_openai_vectors)
-        # print(arr.shape)
-    # raise ValueError
         search_results = client.query_points(
-               collection_name="cnn_news_chunk_vectors",
-               query=question_openai_vectors[0],
-               limit=3
-           )
+            collection_name="cnn_news_chunk_vectors",
+            query=question_openai_vectors[0],
+            limit=3
+        )
         
-        limited_qa_id_collection = []
-        saved_chunks_group_1 =[]
+        related_subset = []
         for search_result in search_results.points:
-            limited_qa_id_collection.append((original_question[0][sub_question_index],search_result.payload["text"],search_result.payload["article_id"]))
-            filtered_qa_results = filter(pass_threshold, limited_qa_id_collection)
-    
-        saved_chunks_group_1.append(list(filtered_qa_results))
-        # print(saved_chunks_group_1)
+            related_subset.append((
+                question_value,
+                search_result.payload["text"],
+                search_result.payload["article_id"],
+            ))
+        filtered_qa_results = list(filter(
+            pass_threshold,
+            related_subset,
+        ))
 
-#             text_collection = [] #注意每次三個蒐集完都要歸零不然會一直累積
-#             for result in search_results.points: #search results是QueryReponse type 要先用point取出attribute, search_results有三個, result等於每一個scoredpoint
-#                 if relevence_score_open_ai.score >=0.5:
-#                     text_collection.append(result.payload["text"])
-#                     text_collection.append(f'[article_id:{result.payload["article_id"]}]') #加上article_id在每個文章後面
-#                 else:
-#                     text_collection.append("None")
-
-        class RelatedChunkCollection:
-            sub_question:int
-            original_question:str
-            text_collection: List[str]
-
-            def __init__(self, sub_question, original_question, text_collection):
-                self.sub_question = sub_question
-                self.original_question =original_question
-                self.text_collection = text_collection
-
-        saved_chunks.append(RelatedChunkCollection(
-                 sub_question=sub_question_index,
-                 original_question= original_question[0][sub_question_index],
-                 text_collection= saved_chunks_group_1
-             ))
+        saved_chunks_group_1.append(SubquestionRelatedChunks(
+            sub_question=sub_question_index,
+            original_question= original_question[0][sub_question_index],
+            text_collection=filtered_qa_results,
+        ))
             
     # for chunk in saved_chunks:
     #     print(chunk.sub_question)
@@ -152,23 +159,27 @@ def gen_report(
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
     cur=db.cursor()
 
-    for chunk in saved_chunks:
-        final_ans= structured_model.invoke([SystemMessage(content=system_ans)]+[HumanMessage(content=str(chunk.text_collection))]+[HumanMessage(content=str(chunk.original_question))]) #把original_question+searched_chunks+score一起丟入
-        print(final_ans)
+    for subquestion in saved_chunks_group_1:
+        aggregated_2nd_level= structured_model.invoke([
+            SystemMessage(content=system_ans),
+            HumanMessage(content=str(subquestion.text_collection)),
+            HumanMessage(content=str(subquestion.original_question))
+        ]) #把original_question+searched_chunks+score一起丟入
+        print(aggregated_2nd_level)
 
         saved_answers.append({
-                "sub_question": chunk.sub_question,
-                "final_answer": final_ans.result,
-                })
+            "sub_question": subquestion.sub_question,
+            "final_answer": aggregated_2nd_level.result,
+        })
 
-    answers_dict_1 = []
-    appendix_dict_1 =[]
-    answers_dict_2 = []
-    appendix_dict_2 =[]
+    final_answers_1 = []
+    final_appendix_1 =[]
+    final_answers_2 = []
+    final_appendix_2 =[]
     saved_final_answers =[]
 
     for ans in saved_answers:   
-        answers_dict_1.append(ans['final_answer'])
+        final_answers_1.append(ans['final_answer'])
 
         match = re.findall(r'\[article_id:(\d+)\]', str(ans))
         if match:
@@ -180,22 +191,22 @@ def gen_report(
                 for row in cur.fetchall():
                     # print(row)
                     # if ans['main_question'] ==0:
-                        appendix_dict_1.append(row)
+                        final_appendix_1.append(row)
                     # elif ans['main_question'] ==1:
-                    #     appendix_dict_2.append(row)
+                    #     final_appendix_2.append(row)
         else:
             print("Not found article_id")
     
-    saved_final_answers.append({"Client Background":answers_dict_1, 
-            "Appendix of Client Background":appendix_dict_1,})
-#             "Adverse Information Report Headline":answers_dict_2, 
-#             "Appendix of Adverse Information Report Headline":appendix_dict_2}) 
+    saved_final_answers.append({"Client Background":final_answers_1, 
+            "Appendix of Client Background":final_appendix_1,})
+#             "Adverse Information Report Headline":final_answers_2, 
+#             "Appendix of Adverse Information Report Headline":final_appendix_2}) 
     print(saved_final_answers)     
 #     return saved_final_answers
-    print("Client Background:", answers_dict_1)
-    print("Appendix of Client Background:", appendix_dict_1)
-#     # print("Adverse Information Report Headline:", answers_dict_2)
-#     # print("Appendix of Adverse Information Report Headline:", appendix_dict_2)
+    print("Client Background:", final_answers_1)
+    print("Appendix of Client Background:", final_appendix_1)
+#     # print("Adverse Information Report Headline:", final_answers_2)
+#     # print("Appendix of Adverse Information Report Headline:", final_appendix_2)
 
 
 gen_report("Binance")
