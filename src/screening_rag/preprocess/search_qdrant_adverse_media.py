@@ -12,34 +12,36 @@ from qdrant_client import QdrantClient, models
 import re
 import MySQLdb
 import streamlit as st
+from typing import Optional
 
 class SubquestionRelatedChunks(BaseModel):
-    original_question:str
-    crime_id: int
-    time: str
-    subjects: str
-    summary: str
-    adverse_info_type = str
-    violated_laws = str
-    enforcement_action = str
+    original_question:Optional[str]
+    crime_id:Optional[int]
+    time:Optional[str]
+    subjects:Optional[str]
+    summary:Optional[str]
+    adverse_info_type:Optional[str]
+    violated_laws:Optional[str]
+    enforcement_action:Optional[str]
 
-    def __init__(self, original_question, crime_id, time, subjects, summary, adverse_info_type, violated_laws, enforcement_action):
-        self.original_question = original_question
-        self.crime_id = crime_id
-        self.time = time
-        self.subjects = subjects
-        self.summary = summary
-        self.adverse_info_type = adverse_info_type
-        self.violated_laws = violated_laws
-        self.enforcement_action = enforcement_action
+    # def __init__(self, original_question, crime_id, time, subjects, summary, adverse_info_type, violated_laws, enforcement_action):
+    #     self.original_question = original_question
+    #     self.crime_id = crime_id
+    #     self.time = time
+    #     self.subjects = subjects
+    #     self.summary = summary
+    #     self.adverse_info_type = adverse_info_type
+    #     self.violated_laws = violated_laws
+    #     self.enforcement_action = enforcement_action
 
 class ChatReport(BaseModel):
     result: str = Field(
         description="""
-                    (1)Help generate the final answer in relation to the corresponding original question according to the materials based on the 'time', 'subject', 'summary', 'violated_laws', and 'enforcement_action' field in the payload.
-                    (2)Include the corresponding [id] at the end of each answer to indicate the source of the chunk  based on the 'crime_id' in the payload.
-                    (3)Include the crime time in the format YYYYMM at the beginning, based on the 'time' field in the payload. 
-                    (4)Please refer to the examples below when generating the answers:
+                    (1)As per each instance, help generate the final answer in relation to the corresponding original question according to the materials based on the 'time', 'subject', 'summary', 'violated_laws', and 'enforcement_action' field in each instance.
+                    (2)Include the corresponding [id] at the end of each answer to indicate the source of the chunk  based on the 'crime_id' in the instance.
+                    (3)Include the crime time in the format YYYYMM at the beginning, based on the 'time' field in the instance.
+                    (4)Help deduplicate the list of instances (crime events) based on similar content, considering both the time and the event details.
+                    (5)Please refer to the examples below when generating the answers:
                     
                             Question: 'Has the company {subject} been accused of committing any financial crimes? If so, please provide the summary of financial crime the company {subject} accused of committing.
                             Answer: '201708 Google was accused of violating anti-money laundering laws, 
@@ -108,8 +110,10 @@ def gen_report(
             violated_laws = search_result_group_2.payload["violated_laws"], 
             enforcement_action = search_result_group_2.payload["enforcement_action"]
              ))
+         
     sorted_time_saved_chunks_group_2 = sorted(saved_chunks_group_2, key=lambda x:x.time, reverse = True)
-    json_sorted_time_saved_chunks_group_2 = json.dumps(sorted_time_saved_chunks_group_2, indent=4) 
+    json_sorted_time_saved_chunks_group_2 = json.dumps([chunk.model_dump() for chunk in sorted_time_saved_chunks_group_2], indent=4)
+    # json_sorted_time_saved_chunks_group_2 = json.dumps(sorted_time_saved_chunks_group_2, indent=4) 
 
     model = ChatOpenAI(model="gpt-4o", temperature=0) 
     structured_model = model.with_structured_output(ChatReport)
@@ -133,18 +137,15 @@ def gen_report(
     ]) #把original_question+searched_chunks+score一起丟入
     # print(aggregated_2nd_level)
 
-    saved_answers.append({
-        "final_answer": aggregated_2nd_level.result,
-    })
-
+    saved_answers.append(aggregated_2nd_level.result)
     final_answers_2 = []
     final_appendix_2 =[]
     saved_final_answers =[]
 
-    for ans in saved_answers:   
-        final_answers_2.append(ans['final_answer'])
-        match = re.findall(r'\[id: (\d+)\]', str(ans))
-        if match:
+    # for ans in saved_answers:   
+    final_answers_2.append(saved_answers[0])
+    match = re.findall(r'\[id: (\d+)\]', str(final_answers_2))
+    if match:
             for id in match:
                 num=int(id)
                 query = "select ID, title, url from my_database.SUMMARY_CNN_NEWS where ID = %s"
@@ -154,7 +155,7 @@ def gen_report(
     
     saved_final_answers.append({
             "Adverse Information Report Headline":final_answers_2, 
-            "Appendix of Adverse Information Report Headline":final_appendix_2}) 
+            "Appendix of Adverse Information Report Headline":set(final_appendix_2)}) 
     print(saved_final_answers)
 
 #     return saved_final_answers
