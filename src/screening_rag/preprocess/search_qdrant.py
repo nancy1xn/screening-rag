@@ -124,7 +124,7 @@ def gen_report(
             text_collection=filtered_qa_results,
         ))
             
-    # for chunk in saved_chunks:
+    # for chunk in saved_chunks_group_1:
     #     print(chunk.sub_question)
     #     print(chunk.original_question)
     #     print(chunk.text_collection)
@@ -194,8 +194,8 @@ def gen_report(
                         final_appendix_1.append(row)
                     # elif ans['main_question'] ==1:
                     #     final_appendix_2.append(row)
-        else:
-            print("Not found article_id")
+        # else:
+        #     print("Not found article_id")
     
     saved_final_answers.append({"Client Background":final_answers_1, 
             "Appendix of Client Background":final_appendix_1,})
