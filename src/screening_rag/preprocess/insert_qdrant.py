@@ -4,47 +4,48 @@ import numpy as np
 import MySQLdb
 from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, Field
-
-
-embeddings = OpenAIEmbeddings(
-    model="text-embedding-3-large",
-    dimensions=3072
-)
-
-# # create collections
 from qdrant_client import QdrantClient, models
-client = QdrantClient(url="http://localhost:6333")
-client.create_collection(
-    collection_name="summary_cnn_news_vectors",
-    vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
-)
 
-# assert client.collection_exists(collection_name="summary_cnn_news_vectors")
-# collection_info = client.get_collection("summary_cnn_news_vectors")
-# print(collection_info)
+def insert_vectors(crime_id, time, summary, adverse_info_type, subjects, violated_laws, enforcement_action):
+    embeddings = OpenAIEmbeddings(
+        model="text-embedding-3-large",
+        dimensions=3072
+    )
 
-db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-cur=db.cursor()
+    # # create collections
 
-cur.execute("select ID, time, summary, adverse_info_type, subject, violated_laws, enforcement_action from my_database.SUMMARY_CNN_NEWS")
+    client = QdrantClient(url="http://localhost:6333")
+    # client.create_collection(
+    #     collection_name="crime_cnn_news_vectors",
+    #     vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
+    # )
 
-#只embed text, 其他插入payload
-for crime in cur.fetchall():
-    crime: t.Tuple
-    crime_id, time, summary, adverse_info_type, subject, violated_laws, enforcement_action = crime
-    print(f'one of the row {crime}')
+    # assert client.collection_exists(collection_name="crime_cnn_news_vectors")
+    # collection_info = client.get_collection("crime_cnn_news_vectors")
+    # print(collection_info)
+
+    # db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
+    # cur=db.cursor()
+
+    # cur.execute("select ID, time, summary, adverse_info_type, violated_laws, enforcement_action from my_database.CRIME_CNN_NEWS")
+
+    #只embed text, 其他插入payload
+    # for crime in cur.fetchall():
+        # crime: t.Tuple
+        # crime_id, time, summary, adverse_info_type, violated_laws, enforcement_action = crime
+    # print(f'one of the row {summary}')
     crime_openai_vectors = embeddings.embed_documents([str(summary)])
     crime_openai_vectors: t.List[List[float]]
     crime = crime_openai_vectors[0]
     client.upsert(
-        collection_name="summary_cnn_news_vectors",
+        collection_name="crime_cnn_news_vectors",
             points=[
                 models.PointStruct(
                     id=crime_id,
                     payload={
                     "id": crime_id,
                     "time": time,
-                    "subject": subject,
+                    "subjects": subjects,
                     "summary": summary,
                     "adverse_info_type": adverse_info_type,
                     "violated_laws": violated_laws,
@@ -54,6 +55,41 @@ for crime in cur.fetchall():
                 ),
             ],
     )
+
+# #Testing
+# client.create_collection(
+#     collection_name="test_goldman_sachs_vectors",
+#     vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
+# )
+
+# cur.execute("select ID, time, summary, adverse_info_type, subject, violated_laws, enforcement_action from my_database.SUMMARY_TEST_GOLDMAN_SACHS_NEWS")
+
+# #只embed text, 其他插入payload
+# for crime in cur.fetchall():
+#     crime: t.Tuple
+#     crime_id, time, summary, adverse_info_type, subject, violated_laws, enforcement_action = crime
+#     print(f'one of the row {crime}')
+#     crime_openai_vectors = embeddings.embed_documents([str(summary)])
+#     crime_openai_vectors: t.List[List[float]]
+#     crime = crime_openai_vectors[0]
+#     client.upsert(
+#         collection_name="test_goldman_sachs_vectors",
+#             points=[
+#                 models.PointStruct(
+#                     id=crime_id,
+#                     payload={
+#                     "id": crime_id,
+#                     "time": time,
+#                     "subject": subject,
+#                     "summary": summary,
+#                     "adverse_info_type": adverse_info_type,
+#                     "violated_laws": violated_laws,
+#                     "enforcement_action": enforcement_action,
+#                     },
+#                     vector=crime,
+#                 ),
+#             ],
+#     )
 
         # print(openai_vectors)
         # print(type(openai_vectors))
@@ -91,5 +127,5 @@ for crime in cur.fetchall():
     # )
     # print(results, next_page)
 
-    #CURL -L -X GET 'http://localhost:6333/collections/summary_cnn_news_vectors/points/1'
-    #curl -X DELETE "http://localhost:6333/collections/summary_cnn_news_vectors"
+    #CURL -L -X GET 'http://localhost:6333/collections/crime_cnn_news_vectors/points/1'
+    #curl -X DELETE "http://localhost:6333/collections/crime_cnn_news_vectors"
