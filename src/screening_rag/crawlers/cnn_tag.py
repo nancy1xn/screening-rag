@@ -12,6 +12,7 @@ from langchain.load import dumps, loads
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from datetime import date
+from screening_rag.preprocess.insert_qdrant import insert_vectors
 
 class AdverseInfoType(str, Enum):
     Sanction = "Sanction"
@@ -205,15 +206,6 @@ if __name__ == "__main__":
                 );
     """) 
 
-    def insert_id_subject(subject, id):
-        x=cur.execute(
-            """INSERT INTO my_database.SUBJECT_CNN_NEWS(subject, parent_crime_id)
-                VALUES (%s)""",
-                (subject,
-                 id)
-                )
-        return x
-
     for news_article, crimes in get_news:
         print(crimes)
         for crime in crimes:
@@ -230,12 +222,33 @@ if __name__ == "__main__":
                      crime.enforcement_action,
                      news_article.url)
                      )
-            foerign_key_ID = cur.lastrowid #cursor.lastrowid 是 資料庫游標（cursor） 物件的一個屬性，用來 取得最後一次執行 INSERT 語句時，自動產生的主鍵 ID
+            foreign_key_ID = cur.lastrowid #cursor.lastrowid 是 資料庫游標（cursor） 物件的一個屬性，用來 取得最後一次執行 INSERT 語句時，自動產生的主鍵 ID
+            cur.execute("SELECT * from my_database.CRIME_CNN_NEWS WHERE ID = (%s)", (foreign_key_ID,))
+            result = cur.fetchone()
+            # print(result[0])
+            # print(result[2])
+            # print(result[3])
+            # print(result[4])
+            # print(result[5])
+            # print(result[6])
+            # raise ValueError
+            crime_id = result[0]
+            time = result[2]
+            summary = result[3]
+            adverse_info_type = result[4]
+            subjects = crime.subjects
+            violated_laws = result[5]
+            enforcement_action = result[6]
+
+            # print(crime.subjects)
+            # print(type(crime.subjects))
+            insert_vectors(crime_id, time, summary, adverse_info_type, subjects, violated_laws, enforcement_action)
+
             for subject in crime.subjects:
                     cur.execute(
                         """INSERT INTO my_database.SUBJECT_CNN_NEWS(subject, parent_crime_id)
                         VALUES (%s, %s)""",
-                            (subject, foerign_key_ID)
+                            (subject, foreign_key_ID)
                             )
                     db.commit()
 
@@ -246,3 +259,12 @@ if __name__ == "__main__":
     cur.execute("select * from my_database.SUBJECT_CNN_NEWS")
     for row in cur.fetchall():
          print(row)
+
+    # for news_article, crimes in get_news:
+    #     for crime in crimes:
+    #         crime_subjects= ",".join(crime.subjects) if isinstance(crime.subjects, (list)) else crime.subjects
+            # insert_vectors(crime_subjects)
+            # try:
+    # insert_vectors(1)
+            # except Exception as e:
+            #     print(f"insert_vectors 錯誤: {e}")
