@@ -36,7 +36,7 @@ class Crime(BaseModel):
             If so, please provide the summary of of financial crime is the search objected accused of committing """
     )
     adverse_info_type: t.List[AdverseInfoType]
-    subject:str = Field(description="Who is the direct subject of the financial crimes (ex: what is the role or position linked to the search object)?")
+    subjects:t.List[str] = Field(description="Who are the direct subjects of the financial crimes (ex: for those subjects, what are the roles or positions linked to the search object)?")
     violated_laws:str = Field(description="Which laws or regulations are relevant to this financial crime accused of committing by searched object?")
     enforcement_action:str = Field(
                        description="""What is the actual law enforcement action such as charges, prosecution, fines, 
@@ -93,7 +93,7 @@ class NewsSummary(BaseModel):
     )
     
     crimes: t.List[Crime] = Field(
-            description="Please list all financial crimes reported in the news and summarize them in response to the questions in the 'Class Crime' section.")
+            description="Please list all financial crime events reported in the news and summarize them in response to the questions defined in the 'Class Crime' section.")
 
 # Create an instance of the model and enforce the output structure
 model = ChatOpenAI(model="gpt-4o", temperature=0) 
@@ -179,44 +179,70 @@ if __name__ == "__main__":
 
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
     cur=db.cursor()
-    cur.execute("DROP TABLE SUMMARY_CNN_NEWS;")
-    cur.execute("""CREATE TABLE SUMMARY_CNN_NEWS 
-                (ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
-                title VARCHAR(300), 
-                time VARCHAR(50), 
-                summary VARCHAR(500),
-                adverse_info_type VARCHAR(300), 
-                subject VARCHAR(200),
-                violated_laws VARCHAR(200),
-                enforcement_action VARCHAR(400),              
-                url VARCHAR(300), 
-                PRIMARY KEY(ID));""") 
+
+    cur.execute("DROP TABLE SUBJECT_CNN_NEWS;")
+    cur.execute("DROP TABLE CRIME_CNN_NEWS ;")
+
+    cur.execute("""CREATE TABLE CRIME_CNN_NEWS (
+                 ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
+                 title VARCHAR(300), 
+                 time VARCHAR(50), 
+                 summary VARCHAR(2000),
+                 adverse_info_type VARCHAR(1000), 
+                 violated_laws VARCHAR(1000),
+                 enforcement_action VARCHAR(1000),              
+                 url VARCHAR(1000), 
+                 PRIMARY KEY(ID)
+                 );
+    """) 
+
+    cur.execute("""CREATE TABLE SUBJECT_CNN_NEWS (
+                ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
+                subject VARCHAR(500),
+                parent_crime_id BIGINT UNSIGNED,        
+                PRIMARY KEY(ID),
+                FOREIGN KEY (parent_crime_id) REFERENCES CRIME_CNN_NEWS(ID)
+                );
+    """) 
+
+    def insert_id_subject(subject, id):
+        x=cur.execute(
+            """INSERT INTO my_database.SUBJECT_CNN_NEWS(subject, parent_crime_id)
+                VALUES (%s)""",
+                (subject,
+                 id)
+                )
+        return x
 
     for news_article, crimes in get_news:
         print(crimes)
         for crime in crimes:
-            time, summary, adverse_info_type, subject, violated_laws, enforcement_action = crime
+            time, summary, adverse_info_type, subjects, violated_laws, enforcement_action = crime
             crime_adverse_info_type = ", ".join(crime.adverse_info_type) if isinstance(crime.adverse_info_type, (list, tuple)) else crime.adverse_info_type
             cur.execute(
-                    """INSERT INTO my_database.SUMMARY_CNN_NEWS(title, time, summary, adverse_info_type, subject, violated_laws, enforcement_action, url)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (news_article.title, 
-                    crime.time,
-                    crime.summary,
-                    crime_adverse_info_type,
-                    crime.subject,
-                    crime.violated_laws,
-                    crime.enforcement_action,
-                    news_article.url)
-                    )
-            db.commit()
+                    """INSERT INTO my_database.CRIME_CNN_NEWS (title, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
+                     VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                     (news_article.title, 
+                     crime.time,
+                     crime.summary,
+                     crime_adverse_info_type,
+                     crime.violated_laws,
+                     crime.enforcement_action,
+                     news_article.url)
+                     )
+            foerign_key_ID = cur.lastrowid #cursor.lastrowid 是 資料庫游標（cursor） 物件的一個屬性，用來 取得最後一次執行 INSERT 語句時，自動產生的主鍵 ID
+            for subject in crime.subjects:
+                    cur.execute(
+                        """INSERT INTO my_database.SUBJECT_CNN_NEWS(subject, parent_crime_id)
+                        VALUES (%s, %s)""",
+                            (subject, foerign_key_ID)
+                            )
+                    db.commit()
 
-    cur.execute("select * from my_database.SUMMARY_CNN_NEWS")
+    cur.execute("select * from my_database.CRIME_CNN_NEWS")
     for row in cur.fetchall():
-        print(row)
+          print(row)
 
-    
-
-
-
-
+    cur.execute("select * from my_database.SUBJECT_CNN_NEWS")
+    for row in cur.fetchall():
+         print(row)
