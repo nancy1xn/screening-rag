@@ -13,6 +13,7 @@ import re
 import MySQLdb
 import streamlit as st
 from typing import Optional
+from json import JSONEncoder
 
 class SubquestionRelatedChunks(BaseModel):
     original_question:Optional[str]
@@ -112,7 +113,14 @@ def gen_report(
              ))
          
     sorted_time_saved_chunks_group_2 = sorted(saved_chunks_group_2, key=lambda x:x.time, reverse = True)
+    # class Encoder(JSONEncoder):
+    #      def default(self, o):
+    # #           return o.__dict__
     json_sorted_time_saved_chunks_group_2 = json.dumps([chunk.model_dump() for chunk in sorted_time_saved_chunks_group_2], indent=4)
+    # json_sorted_time_saved_chunks_group_2 =[]
+    # for chunk in sorted_time_saved_chunks_group_2:
+    #      json_sorted_time_saved_chunks_group_2.append(chunk.model_dump_json())
+    # json_sorted_time_saved_chunks_group_2 = json.dumps([chunk for chunk in sorted_time_saved_chunks_group_2], indent=4, cls= Encoder)
     # json_sorted_time_saved_chunks_group_2 = json.dumps(sorted_time_saved_chunks_group_2, indent=4) 
 
     model = ChatOpenAI(model="gpt-4o", temperature=0) 
