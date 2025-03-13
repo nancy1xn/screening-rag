@@ -15,11 +15,20 @@ import streamlit as st
 from typing import Optional
 from json import JSONEncoder
 
+class SubjectSimilarity(BaseModel):
+    keywords: List[str] = Field(
+        description="""
+                    (1)Given a set of subject names, generate a list of alternative words that are partially similar to the keyword or name input by the user based on the input set of subjects name. 
+                    Perform partial keyword matching to find relevant alternatives.
+                    (2)Instead of generating using ChatGPT, simply choose a list of alternative words from the provided/input set of subject names.
+                    (3)The final set shall includes original input keyword.
+                    """)
+
 class SubquestionRelatedChunks(BaseModel):
     original_question:Optional[str]
     crime_id:Optional[int]
     time:Optional[str]
-    subjects:Optional[str]
+    subjects:Optional[List[str]]
     summary:Optional[str]
     adverse_info_type:Optional[str]
     violated_laws:Optional[str]
@@ -88,18 +97,42 @@ def gen_report(
 # gen_report("Goldman Sachs")
 
 # Group2
+    #select from subject table in set format
+    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
+    cur=db.cursor()
+    cur.execute("SELECT DISTINCT subject FROM my_database.SUBJECT_CNN_NEWS")
+    multiple_subjects_name_subset = cur.fetchall()
+    model = ChatOpenAI(model="gpt-4o", temperature=0) 
+    structured_model = model.with_structured_output(SubjectSimilarity)
+    system_prompt_subjectkeywords = """You are a helpful assistant to perform partial keyword matching to find relevant alternatives partially similar to the keyword input by the user. Remember that original input keyword shall be included """
+    
+    generated_subjects= structured_model.invoke([
+                    SystemMessage(content=system_prompt_subjectkeywords),
+                    HumanMessage(content=str(multiple_subjects_name_subset)),
+                    HumanMessage(content=keyword)])
+    # print(generated_subjectkeywords)
     # print(original_question[1])
     question_openai_vectors_group_2 = embeddings.embed_documents(original_question[1])
     question_openai_vectors_group_2: t.List[List[float]]
     search_results_group_2 = client.query_points(
-               collection_name="summary_cnn_news_vectors",
+               collection_name="crime_cnn_news_vectors",
                query=question_openai_vectors_group_2[0],
-               limit=100
-           )
+               limit=100,
+               query_filter = models.Filter(
+                   must=[
+                    models.FieldCondition(
+                        key="subjects",
+                        match=models.MatchAny(
+                          any=generated_subjects.keywords,  
+                        ),
+                    )   
+                   ] 
+               )
+    )
     saved_chunks_group_2 = []
     for search_result_group_2 in search_results_group_2.points:
         # print(search_result_group_2)
-        if search_result_group_2.score>=0.41 and subject in search_result_group_2.payload["subjects"]: #fuzzy search?
+        if search_result_group_2.score>=0.41: #fuzzy search?
         # if subject in search_result_group_2.payload["subjects"]:
             saved_chunks_group_2.append(SubquestionRelatedChunks(
             original_question = original_question[1][0], 
@@ -113,17 +146,8 @@ def gen_report(
              ))
          
     sorted_time_saved_chunks_group_2 = sorted(saved_chunks_group_2, key=lambda x:x.time, reverse = True)
-    # class Encoder(JSONEncoder):
-    #      def default(self, o):
-    # #           return o.__dict__
     json_sorted_time_saved_chunks_group_2 = json.dumps([chunk.model_dump() for chunk in sorted_time_saved_chunks_group_2], indent=4)
-    # json_sorted_time_saved_chunks_group_2 =[]
-    # for chunk in sorted_time_saved_chunks_group_2:
-    #      json_sorted_time_saved_chunks_group_2.append(chunk.model_dump_json())
-    # json_sorted_time_saved_chunks_group_2 = json.dumps([chunk for chunk in sorted_time_saved_chunks_group_2], indent=4, cls= Encoder)
-    # json_sorted_time_saved_chunks_group_2 = json.dumps(sorted_time_saved_chunks_group_2, indent=4) 
 
-    model = ChatOpenAI(model="gpt-4o", temperature=0) 
     structured_model = model.with_structured_output(ChatReport)
     system_ans = """You are a helpful assistant to generate the final answer in relation to the corresponding original question according 
                     to the materials based on the 'time', 'subjects', 'summary', 'violated_laws', and 'enforcement_action' field in the payload."""
@@ -132,16 +156,10 @@ def gen_report(
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
     cur=db.cursor()
 
-    # for chunk in sorted_time_saved_chunks_group_2:
     aggregated_2nd_level= structured_model.invoke([
         SystemMessage(content=system_ans),
         HumanMessage(content=json_sorted_time_saved_chunks_group_2),
-        # HumanMessage(content=str(chunk.crime_id)),
-        # HumanMessage(content=str(chunk.time)),
-        # HumanMessage(content=str(chunk.subjects)),
-        # HumanMessage(content=str(chunk.violated_laws)),
-        # HumanMessage(content=str(chunk.summary)),
-        # HumanMessage(content=str(chunk.enforcement_action))
+
     ]) #把original_question+searched_chunks+score一起丟入
     # print(aggregated_2nd_level)
 
