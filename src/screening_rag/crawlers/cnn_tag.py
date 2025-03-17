@@ -1,8 +1,8 @@
 import streamlit as st
 from enum import Enum
 import requests
-import json
 import typing as t
+from typing import Union
 from newsplease.NewsArticle import NewsArticle
 from newsplease import NewsPlease
 import MySQLdb
@@ -11,38 +11,10 @@ from langchain.chains import LLMChain
 from langchain.load import dumps, loads
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
-from datetime import date
-from screening_rag.preprocess.insert_qdrant import insert_vectors
+from screening_rag.preprocess.crime import Crime
+from screening_rag.preprocess import crime
 
-class AdverseInfoType(str, Enum):
-    Sanction = "Sanction"
-    Money_Laundering_Terrorist_Financing = "Money Laundering/ Terrorist Financing"
-    Fraud = "Fraud"
-    Bribery_Corruption = "Bribery/ Corruption"
-    Organized_Crime = "Organized Crime"
-    Internal_Control_Failures = "Internal AML/CFT Control Failures"
-    Other = "Other catergory of Adverse Information"
     
-
-# Define a pydantic model to enforce the output structure
-class Crime(BaseModel):
-    time:str = Field(
-        description="""With format YYYYMM/ When did the searched object commit a financial crime? (if applicable)
-        If you can find the time when financial crime occurs, use that exact time of the crime mentioned in the news as the answer. 
-        If there is no exact time of occurrence mentioned in the news, use "news published date" as the answer. 
-        Please do not make up the answer if there is no relevent answer."""
-    )
-    summary:str = Field(
-            description ="""Has the searched object been accused of committing any financial crimes? 
-            If so, please provide the summary of of financial crime is the search objected accused of committing """
-    )
-    adverse_info_type: t.List[AdverseInfoType]
-    subjects:t.List[str] = Field(description="Who are the direct subjects of the financial crimes (ex: for those subjects, what are the roles or positions linked to the search object)?")
-    violated_laws:str = Field(description="Which laws or regulations are relevant to this financial crime accused of committing by searched object?")
-    enforcement_action:str = Field(
-                       description="""What is the actual law enforcement action such as charges, prosecution, fines, 
-                       or conviction are relevant to this financial crime accused of committing by searched object?"""
-    )
 
 class NewsSummary(BaseModel):
     """
@@ -124,7 +96,7 @@ def get_cnn_news(
     keyword: str,
     amount: int,
     sort_by: SortingBy,
-) -> t.Iterable[NewsArticle]:
+) -> t.Iterable[Union[NewsArticle, t.List[Crime]]]:
     """
     Retrieve NewsArticle Objects related to financial crime.
     
@@ -161,6 +133,7 @@ def get_cnn_news(
             url = news["path"]          
             news_article = NewsPlease.from_url(url)
             news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=news_article.get_serializable_dict()['maintext'])])
+            news_summary: NewsSummary
             if news_summary.is_adverse_news==True:
                  yield news_article, news_summary.crimes
                  count +=1                
@@ -176,7 +149,7 @@ if __name__ == "__main__":
     parser.add_argument("amount", help="The amount of the crawled articles", type=int)
     parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default=SortingBy.RELEVANCY)
     args = parser.parse_args()
-    get_news = get_cnn_news(args.keyword, args.amount, args.sort_by)
+    downloaded_news = get_cnn_news(args.keyword, args.amount, args.sort_by)
 
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
     cur=db.cursor()
@@ -206,51 +179,36 @@ if __name__ == "__main__":
                 );
     """) 
 
-    for news_article, crimes in get_news:
-        print(crimes)
-        for crime in crimes:
-            time, summary, adverse_info_type, subjects, violated_laws, enforcement_action = crime
-            crime_adverse_info_type = ", ".join(crime.adverse_info_type) if isinstance(crime.adverse_info_type, (list, tuple)) else crime.adverse_info_type
+    for news_article, crimes in downloaded_news:
+        for c in crimes:
+            crime_adverse_info_type = ",".join(c.adverse_info_type)
             cur.execute(
-                    """INSERT INTO my_database.CRIME_CNN_NEWS (title, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
-                     VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                     (news_article.title, 
-                     crime.time,
-                     crime.summary,
-                     crime_adverse_info_type,
-                     crime.violated_laws,
-                     crime.enforcement_action,
-                     news_article.url)
-                     )
-            foreign_key_ID = cur.lastrowid #cursor.lastrowid 是 資料庫游標（cursor） 物件的一個屬性，用來 取得最後一次執行 INSERT 語句時，自動產生的主鍵 ID
-            cur.execute("SELECT * from my_database.CRIME_CNN_NEWS WHERE ID = (%s)", (foreign_key_ID,))
-            result = cur.fetchone()
-            # print(result[0])
-            # print(result[2])
-            # print(result[3])
-            # print(result[4])
-            # print(result[5])
-            # print(result[6])
-            # raise ValueError
-            crime_id = result[0]
-            time = result[2]
-            summary = result[3]
-            adverse_info_type = result[4]
-            subjects = crime.subjects
-            violated_laws = result[5]
-            enforcement_action = result[6]
+                """
+                INSERT INTO my_database.CRIME_CNN_NEWS (title, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (news_article.title, 
+                c.time,
+                c.summary,
+                crime_adverse_info_type,
+                c.violated_laws,
+                c.enforcement_action,
+                news_article.url),
+            )
+            c.id = cur.lastrowid #cursor.lastrowid 是 資料庫游標（cursor） 物件的一個屬性，用來 取得最後一次執行 INSERT 語句時，自動產生的主鍵 ID
+            print(c.id)
 
             # print(crime.subjects)
             # print(type(crime.subjects))
-            insert_vectors(crime_id, time, summary, adverse_info_type, subjects, violated_laws, enforcement_action)
+            crime.insert_to_qdrant(c)
 
-            for subject in crime.subjects:
-                    cur.execute(
-                        """INSERT INTO my_database.SUBJECT_CNN_NEWS(subject, parent_crime_id)
-                        VALUES (%s, %s)""",
-                            (subject, foreign_key_ID)
-                            )
-                    db.commit()
+            for subject in c.subjects:
+                cur.execute(
+                    """INSERT INTO my_database.SUBJECT_CNN_NEWS(subject, parent_crime_id) VALUES (%s, %s)""",
+                    (subject, c.id),
+                )
+                db.commit()
+        print(crimes)
 
     cur.execute("select * from my_database.CRIME_CNN_NEWS")
     for row in cur.fetchall():
