@@ -1,131 +1,70 @@
 import typing as t
-from typing import List
-import numpy as np
-import MySQLdb
+from enum import Enum
 from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient, models
 
-def insert_vectors(crime_id, time, summary, adverse_info_type, subjects, violated_laws, enforcement_action):
+
+class AdverseInfoType(str, Enum):
+    Sanction = "Sanction"
+    Money_Laundering_Terrorist_Financing = "Money Laundering/ Terrorist Financing"
+    Fraud = "Fraud"
+    Bribery_Corruption = "Bribery/ Corruption"
+    Organized_Crime = "Organized Crime"
+    Internal_Control_Failures = "Internal AML/CFT Control Failures"
+    Other = "Other catergory of Adverse Information"
+
+
+# Define a pydantic model to enforce the output structure
+class Crime(BaseModel):
+    time:str = Field(
+        description="""With format YYYYMM/ When did the searched object commit a financial crime? (if applicable)
+        If you can find the time when financial crime occurs, use that exact time of the crime mentioned in the news as the answer. 
+        If there is no exact time of occurrence mentioned in the news, use "news published date" as the answer. 
+        Please do not make up the answer if there is no relevent answer."""
+    )
+    summary:str = Field(
+            description ="""Has the searched object been accused of committing any financial crimes? 
+            If so, please provide the summary of of financial crime is the search objected accused of committing """
+    )
+    adverse_info_type: t.List[AdverseInfoType]
+    subjects:t.List[str] = Field(description="Who are the direct subjects of the financial crimes (ex: for those subjects, what are the roles or positions linked to the search object)?")
+    violated_laws:str = Field(description="Which laws or regulations are relevant to this financial crime accused of committing by searched object?")
+    enforcement_action:str = Field(
+                       description="""What is the actual law enforcement action such as charges, prosecution, fines, 
+                       or conviction are relevant to this financial crime accused of committing by searched object?"""
+    )
+    id:int = None
+
+def insert_to_qdrant(crime: Crime):
     embeddings = OpenAIEmbeddings(
         model="text-embedding-3-large",
         dimensions=3072
     )
 
-    # # create collections
-
     client = QdrantClient(url="http://localhost:6333")
-    # client.create_collection(
-    #     collection_name="crime_cnn_news_vectors",
-    #     vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
-    # )
-
-    # assert client.collection_exists(collection_name="crime_cnn_news_vectors")
-    # collection_info = client.get_collection("crime_cnn_news_vectors")
-    # print(collection_info)
-
-    # db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-    # cur=db.cursor()
-
-    # cur.execute("select ID, time, summary, adverse_info_type, violated_laws, enforcement_action from my_database.CRIME_CNN_NEWS")
-
-    #只embed text, 其他插入payload
-    # for crime in cur.fetchall():
-        # crime: t.Tuple
-        # crime_id, time, summary, adverse_info_type, violated_laws, enforcement_action = crime
-    # print(f'one of the row {summary}')
-    crime_openai_vectors = embeddings.embed_documents([str(summary)])
-    crime_openai_vectors: t.List[List[float]]
-    crime = crime_openai_vectors[0]
+    crime_openai_vectors = embeddings.embed_documents([str(crime.summary)])
+    crime_openai_vectors: t.List[t.List[float]]
+    crime_openai_vector = crime_openai_vectors[0]
     client.upsert(
         collection_name="crime_cnn_news_vectors",
             points=[
                 models.PointStruct(
-                    id=crime_id,
+                    id=crime.id,
                     payload={
-                    "id": crime_id,
-                    "time": time,
-                    "subjects": subjects,
-                    "summary": summary,
-                    "adverse_info_type": adverse_info_type,
-                    "violated_laws": violated_laws,
-                    "enforcement_action": enforcement_action,
+                    "id": crime.id,
+                    "time": crime.time,
+                    "subjects": crime.subjects,
+                    "summary": crime.summary,
+                    "adverse_info_type": crime.adverse_info_type,
+                    "violated_laws": crime.violated_laws,
+                    "enforcement_action": crime.enforcement_action,
                     },
-                    vector=crime,
+                    vector=crime_openai_vector,
                 ),
             ],
     )
 
-# #Testing
-# client.create_collection(
-#     collection_name="test_goldman_sachs_vectors",
-#     vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
-# )
-
-# cur.execute("select ID, time, summary, adverse_info_type, subject, violated_laws, enforcement_action from my_database.SUMMARY_TEST_GOLDMAN_SACHS_NEWS")
-
-# #只embed text, 其他插入payload
-# for crime in cur.fetchall():
-#     crime: t.Tuple
-#     crime_id, time, summary, adverse_info_type, subject, violated_laws, enforcement_action = crime
-#     print(f'one of the row {crime}')
-#     crime_openai_vectors = embeddings.embed_documents([str(summary)])
-#     crime_openai_vectors: t.List[List[float]]
-#     crime = crime_openai_vectors[0]
-#     client.upsert(
-#         collection_name="test_goldman_sachs_vectors",
-#             points=[
-#                 models.PointStruct(
-#                     id=crime_id,
-#                     payload={
-#                     "id": crime_id,
-#                     "time": time,
-#                     "subject": subject,
-#                     "summary": summary,
-#                     "adverse_info_type": adverse_info_type,
-#                     "violated_laws": violated_laws,
-#                     "enforcement_action": enforcement_action,
-#                     },
-#                     vector=crime,
-#                 ),
-#             ],
-#     )
-
-        # print(openai_vectors)
-        # print(type(openai_vectors))
-        # d = np.array(openai_vectors)
-        # print(d.shape)
-        # raise ValueError
-
-
-
-    #search
-    # results = client.search(
-    #     collection_name="summary_cnn_news_vectors",
-    #     query_vector=openai_vectors[0],
-    #     limit=10,
-    #     with_vectors=True  # 設置為 True 以返回向量
-    # )
-    # print(results)
-    #retrieve
-    # retrieved_point = client.retrieve(
-    #     collection_name="summary_cnn_news_vectors",
-    #     ids=[1],
-    # )
-    # print(retrieved_point)
-
-
-    # #get collection
-    # collection_info = client.get_collection("testing")
-    # print(collection_info)
-    # results, next_page = client.scroll(
-    #     collection_name="summary_cnn_news_vectors",
-    #     limit=100,                # 每次返回的資料點數量
-    #     offset=None,              # 可選的起始偏移量
-    #     with_vectors=True,        # 設為 True 來檢索向量
-    #     with_payload=True,        # 設為 True 來檢索 payload（附加資料)
-    # )
-    # print(results, next_page)
 
     #CURL -L -X GET 'http://localhost:6333/collections/crime_cnn_news_vectors/points/1'
     #curl -X DELETE "http://localhost:6333/collections/crime_cnn_news_vectors"
