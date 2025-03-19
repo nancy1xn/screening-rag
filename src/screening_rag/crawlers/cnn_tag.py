@@ -76,7 +76,7 @@ structured_model = model.with_structured_output(NewsSummary)
 system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event, 
             please return boolean: True. If the news is not related to financial crime, please return boolean: False.
 
-            In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time, the event, 
+            In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time(ONLY USE "news published date"((newsarticle.date_publish)), the event, 
             the crime type, the direct object of wrongdoing, and the laws or regulations action."""
 
 class SortingBy(str, Enum):
@@ -91,6 +91,7 @@ class SortingBy(str, Enum):
     """
     NEWEST = "newest"
     RELEVANCY = "relevance"
+
 
 def get_cnn_news(
     keyword: str,
@@ -132,7 +133,7 @@ def get_cnn_news(
                 continue
             url = news["path"]          
             news_article = NewsPlease.from_url(url)
-            news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=news_article.get_serializable_dict()['maintext'])])
+            news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=news_article.get_serializable_dict()['maintext'])]+[HumanMessage(content=news_article.get_serializable_dict()['date_publish'])])
             news_summary: NewsSummary
             if news_summary.is_adverse_news==True:
                  yield news_article, news_summary.crimes
@@ -149,6 +150,7 @@ if __name__ == "__main__":
     parser.add_argument("amount", help="The amount of the crawled articles", type=int)
     parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default=SortingBy.RELEVANCY)
     args = parser.parse_args()
+
     downloaded_news = get_cnn_news(args.keyword, args.amount, args.sort_by)
 
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
@@ -160,6 +162,8 @@ if __name__ == "__main__":
     cur.execute("""CREATE TABLE CRIME_CNN_NEWS (
                  ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
                  title VARCHAR(300), 
+                 keyword VARCHAR(300),
+                 newsplease_time DATETIME, 
                  time VARCHAR(50), 
                  summary VARCHAR(2000),
                  adverse_info_type VARCHAR(1000), 
@@ -184,10 +188,12 @@ if __name__ == "__main__":
             crime_adverse_info_type = ",".join(c.adverse_info_type)
             cur.execute(
                 """
-                INSERT INTO my_database.CRIME_CNN_NEWS (title, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO my_database.CRIME_CNN_NEWS (title, keyword, newsplease_time, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (news_article.title, 
+                (news_article.title,
+                args.keyword,
+                news_article.date_publish,
                 c.time,
                 c.summary,
                 crime_adverse_info_type,
