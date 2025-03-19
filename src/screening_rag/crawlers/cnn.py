@@ -10,6 +10,8 @@ from langchain.chains import LLMChain
 from langchain.load import dumps, loads
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
+from screening_rag.preprocess.chunking import insert_chunk_table
+from screening_rag.preprocess.chunking_qdrant import process_and_insert_chunks_to_cnn_news_chunk_vectors
 
 # Define a pydantic model to enforce the output structure
 class IsAdverseMedia(BaseModel):
@@ -132,20 +134,29 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default=SortingBy.RELEVANCY)
     args = parser.parse_args()
 
-    get_news = get_cnn_news(args.keyword, args.amount, args.sort_by)
+    downloaded_news = get_cnn_news(args.keyword, args.amount, args.sort_by)
 
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
     cur=db.cursor()
 
-    # # cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
-    # # cur.execute("DROP TABLE CNN_NEWS;")
-    # # cur.execute("CREATE TABLE CNN_NEWS (ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, title VARCHAR(300), description VARCHAR(3000), maintext MEDIUMTEXT, date_publish DATETIME, url VARCHAR(300), PRIMARY KEY(ID));") 
+    cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
+    cur.execute("DROP TABLE CNN_NEWS;")
+    cur.execute("""CREATE TABLE CNN_NEWS (
+                ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
+                title VARCHAR(300), 
+                keyword VARCHAR(300),
+                description VARCHAR(3000), 
+                maintext MEDIUMTEXT, 
+                date_publish DATETIME, 
+                url VARCHAR(300), 
+                PRIMARY KEY(ID));""") 
 
-    for news_article in get_news:
+    for news_article in downloaded_news:
         cur.execute(
-                """INSERT INTO my_database.CNN_NEWS (title, description, maintext, date_publish, url)
-                VALUES (%s, %s, %s, %s, %s)""",
-                (news_article.title, 
+                """INSERT INTO my_database.CNN_NEWS (title, keyword, description, maintext, date_publish, url)
+                VALUES (%s, %s, %s, %s, %s, %s)""",
+                (news_article.title,
+                args.keyword, 
                 news_article.description, 
                 news_article.maintext, 
                 news_article.date_publish,
@@ -155,7 +166,9 @@ if __name__ == "__main__":
     cur.execute("select * from my_database.CNN_NEWS")
     for row in cur.fetchall():
         print(row)
-
-
-
-
+    cur.close()
+    db.close()
+    insert_chunk_table()
+    process_and_insert_chunks_to_cnn_news_chunk_vectors()
+    
+    
