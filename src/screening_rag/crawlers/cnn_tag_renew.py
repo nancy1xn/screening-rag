@@ -158,7 +158,7 @@ if __name__ == "__main__":
     cur=db.cursor()
 
     for keyword in keywords:
-        cur.execute("SELECT newsplease_time FROM my_database.CRIME_CNN_NEWS WHERE keyword = %s ORDER BY newsplease_time DESC LIMIT 1", (keyword,))
+        cur.execute("SELECT date_publish FROM my_database.CRIME_CNN_NEWS WHERE keyword = %s ORDER BY date_publish DESC LIMIT 1", (keyword,))
         latesttime = cur.fetchall()
         print(latesttime)
         downloaded_news = get_cnn_news(keyword, args.sort_by, latesttime[0][0]) 
@@ -168,7 +168,7 @@ if __name__ == "__main__":
                 crime_adverse_info_type = ",".join(c.adverse_info_type)
                 cur.execute(
                     """
-                    INSERT INTO my_database.CRIME_CNN_NEWS (title, keyword, newsplease_time, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
+                    INSERT INTO my_database.CRIME_CNN_NEWS (title, keyword, date_publish, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (news_article.title,
