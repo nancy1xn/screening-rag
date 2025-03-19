@@ -18,10 +18,9 @@ class AdverseInfoType(str, Enum):
 # Define a pydantic model to enforce the output structure
 class Crime(BaseModel):
     time:str = Field(
-        description="""With format YYYYMM/ When did the searched object commit a financial crime? (if applicable)
-        If you can find the time when financial crime occurs, use that exact time of the crime mentioned in the news as the answer. 
-        If there is no exact time of occurrence mentioned in the news, use "news published date" as the answer. 
-        Please do not make up the answer if there is no relevent answer."""
+        description="""
+            You MUST use the news published date (newsarticle.date_publish) as the ONLY reference for determining the financial crime occurrence time. 
+            The answer MUST be formatted as YYYYMM. Do NOT infer the date from any other clues in the text."""
     )
     summary:str = Field(
             description ="""Has the searched object been accused of committing any financial crimes? 
