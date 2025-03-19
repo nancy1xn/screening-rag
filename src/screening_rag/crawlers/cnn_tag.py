@@ -163,7 +163,7 @@ if __name__ == "__main__":
                  ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
                  title VARCHAR(300), 
                  keyword VARCHAR(300),
-                 newsplease_time DATETIME, 
+                 date_publish DATETIME, 
                  time VARCHAR(50), 
                  summary VARCHAR(2000),
                  adverse_info_type VARCHAR(1000), 
@@ -188,7 +188,7 @@ if __name__ == "__main__":
             crime_adverse_info_type = ",".join(c.adverse_info_type)
             cur.execute(
                 """
-                INSERT INTO my_database.CRIME_CNN_NEWS (title, keyword, newsplease_time, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
+                INSERT INTO my_database.CRIME_CNN_NEWS (title, keyword, date_publish, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (news_article.title,
