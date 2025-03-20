@@ -4,7 +4,6 @@ from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient, models
 
-
 class AdverseInfoType(str, Enum):
     Sanction = "Sanction"
     Money_Laundering_Terrorist_Financing = "Money Laundering/ Terrorist Financing"
@@ -14,8 +13,6 @@ class AdverseInfoType(str, Enum):
     Internal_Control_Failures = "Internal AML/CFT Control Failures"
     Other = "Other catergory of Adverse Information"
 
-
-# Define a pydantic model to enforce the output structure
 class Crime(BaseModel):
     time:str = Field(
         description="""
