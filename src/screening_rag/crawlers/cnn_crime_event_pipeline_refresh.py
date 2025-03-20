@@ -6,11 +6,9 @@ from newsplease.NewsArticle import NewsArticle
 from newsplease import NewsPlease
 import MySQLdb
 from langchain_openai import ChatOpenAI
-from langchain.chains import LLMChain
-from langchain.load import dumps, loads
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
-from screening_rag.preprocess.crime import Crime
+from screening_rag.preprocess.cnn_crime_event import Crime
 from screening_rag.preprocess import crime
 from datetime import datetime
 
@@ -109,7 +107,7 @@ def get_cnn_news(
     count = 0
     page = 1
     size_per_page = 3
-    while True: #!!!
+    while True:
         web = requests.get(
             'https://search.prod.di.api.cnn.io/content', 
             params={
@@ -136,7 +134,7 @@ def get_cnn_news(
                     yield news_article, news_summary.crimes
                     count +=1              
             elif news_article.date_publish <= latesttime:
-                return  #!!!
+                return 
         page += 1
 
 
