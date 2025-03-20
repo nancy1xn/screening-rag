@@ -7,10 +7,9 @@ import MySQLdb
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
-from screening_rag.preprocess.chunking import insert_chunk_table
+from screening_rag.preprocess.cnn_news_chunking import insert_chunk_table
 from datetime import datetime
 
-# Define a pydantic model to enforce the output structure
 class IsAdverseMedia(BaseModel):
     """Check if the media content is considered as adverse media.
 
@@ -56,11 +55,8 @@ class IsAdverseMedia(BaseModel):
             `requests.get('https://search.prod.di.api.cnn.io/content', params={{'q': keyword}})`
             """ )
 
-# Create an instance of the model and enforce the output structure
 model = ChatOpenAI(model="gpt-4o", temperature=0) 
 structured_model = model.with_structured_output(IsAdverseMedia)
-
-# Define the system prompt
 system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime, please return boolean: True. If the news is not related to financial crime, please return boolean: False"""
 
 class SortingBy(str, Enum):
@@ -125,7 +121,6 @@ def get_cnn_news(
             elif article.date_publish <= latesttime:
                 return                     
         page += 1
-
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
