@@ -8,7 +8,6 @@ from typing import List
 from qdrant_client import QdrantClient
 import re
 import MySQLdb
-import itertools
 import more_itertools as mit
 
 class SubquestionRelatedChunks:
@@ -21,7 +20,6 @@ class SubquestionRelatedChunks:
         self.original_question =original_question
         self.text_collection = text_collection
 
-# Define a pydantic model to enforce the output structure
 class Relevance(BaseModel):
     """Assign a relevance score based on the relevance between the answer and the quesion.
 
@@ -40,8 +38,6 @@ class Relevance(BaseModel):
         """
     )
 
-
-
 def gen_report1(
     keyword:str    
 ) ->t.Dict[str, List[str]]:
@@ -57,7 +53,7 @@ def gen_report1(
         [
             f"q1_1 When was the company {subject} founded?",
             f"q1_2 Which country is the company {subject} headquartered in?",
-            f"q1_3 What is the stock ticker of {subject} or its listing status? Please provide only relevant details.", #改問題因為stock ticker score原本不準確, stock ticker可能還是得手動查
+            f"q1_3 What is the stock ticker of {subject} or its listing status? Please provide only relevant details.",
             f"q1_4 What type of business does the company {subject} provide?",
         ],
         [ 
@@ -66,30 +62,13 @@ def gen_report1(
         ]
     ]
 
-#Group2
-    # print(original_question[1])
-    # question_openai_vectors_group_2 = embeddings.embed_documents(original_question[1])
-    # question_openai_vectors_group_2: t.List[List[float]]
-    # search_results_group_2 = client.query_points(
-    #            collection_name="summary_cnn_news_vectors",
-    #            query=question_openai_vectors_group_2[0],
-    #            limit=100
-    #        )
-    # for search_result_group_2 in search_results_group_2.points:
-    #     print(search_result_group_2)
-
-# #Group1
-
-
-    # Create an instance of the model and enforce the output structure
     model = ChatOpenAI(model="gpt-4o", temperature=0) 
     structured_model = model.with_structured_output(Relevance)
-
-    # Define the system prompt
     system = """
         You are a helpful assistant to provide relevence score based on how much useful content the answer contains in relation to the original question. 
         The score is within the range of 0 to 1.
     """
+
     def is_relevance_higher_than_threshold(qa_data: t.Tuple[str]):
         sub_question, searched_answer, _ = qa_data
         relevence_score_open_ai= structured_model.invoke([
@@ -110,7 +89,6 @@ def gen_report1(
             limit=3
         )
         
-        
         related_subset = []
         for search_result in search_results.points:
             related_subset.append((
@@ -129,11 +107,6 @@ def gen_report1(
             text_collection=filtered_qa_results,
         ))
             
-    # for chunk in saved_chunks_group_1:
-    #     print(chunk.sub_question)
-    #     print(chunk.original_question)
-    #     print(chunk.text_collection)
-
     class ChatReport(BaseModel):
         result: str = Field(
             description="""
@@ -154,7 +127,6 @@ def gen_report1(
                         Answer: 'Google is a tech company that primarily focuses on online services, advertising, cloud computing, and hardware, while also venturing into various other sectors.[article_id:4]
             """)
 
-
     model = ChatOpenAI(model="gpt-4o", temperature=0) 
     structured_model = model.with_structured_output(ChatReport)
     system_prompt = """You are a helpful assistant to generate the final answer in relation to the corresponding original question according to the chunks materials from "text" collection."""
@@ -169,8 +141,7 @@ def gen_report1(
             SystemMessage(content=system_prompt),
             HumanMessage(content=str(subquestion_pair.text_collection)),
             HumanMessage(content=str(subquestion_pair.original_question)),
-        ]) #把original_question+searched_chunks+score一起丟入
-        print(aggregated_2nd_level)
+        ]) 
 
         saved_answers.append({
             "sub_question": subquestion_pair.sub_question,
@@ -186,7 +157,6 @@ def gen_report1(
 
         match = re.findall(r'\[article_id:(\d+)\]', str(ans))
         if match:
-            # print(f"article_id:{match}")
             for article_id in match:
                 query = "select ID, title, url from my_database.CNN_NEWS where ID = %s"
                 cur.execute(query, (int(article_id),))
@@ -198,11 +168,7 @@ def gen_report1(
                                 "Appendix of Client Background":sorted_appendix_1,})
  
     print(saved_final_answers) 
-
     return final_answers_1,sorted_appendix_1
-
-    # print("Client Background:", final_answers_1)
-    # print("Appendix of Client Background:", set(final_appendix_1))
 
 if __name__ == "__main__":  
     gen_report1("JP Morgan")
