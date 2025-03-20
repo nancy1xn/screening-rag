@@ -47,7 +47,7 @@ class ChatReport(BaseModel):
                     (1)As per each instance, help generate the final answer in relation to the corresponding original question according to the materials based on the 'time', 'subject', 'summary', 'violated_laws', and 'enforcement_action' field in each instance.
                     (2)Include the corresponding [id] at the end of each answer to indicate the source of the chunk  based on the 'crime_id' in the instance.
                     (3)Include the crime time in the format YYYYMM at the beginning, based on the 'time' field in the instance. 
-                    (4)Help deduplicate the list of instances in json format (crime events) based on similar content, considering both the time and the event details. If there are two similar instances describe the same crime event with overlapping details, only retain one of them.
+                    (4)Help deduplicate the list of instances in json format (crime events) based on similar content, considering both the time and the event details. If there are two similar instances describe the same crime event with overlapping details, YOU MUST RETAIN THE NECESSARY NEWS BASED ON BELOW INSTRUCTIONS:
                        Instructions:
                         **Date Deduplication**: If the crime details are identical but the dates differ, keep only the latest record.  
                         **Content Merging**: If the crime details are similar but some records contain more detailed descriptions, merge the information and retain the most complete version.  
@@ -109,7 +109,7 @@ def gen_report(
     search_results_group_2 = client.query_points(
                collection_name="crime_cnn_news_vectors",
                query=question_openai_vectors_group_2[0],
-               limit=100,
+               limit=2,
                query_filter = models.Filter(
                    must=[
                     models.FieldCondition(
@@ -144,6 +144,7 @@ def gen_report(
     system_ans = """You are a helpful assistant to generate the final answer in relation to the corresponding original question according 
                     to the materials based on the 'time', 'subjects', 'summary', 'violated_laws', and 'enforcement_action' field in the payload.
                     In addition, given a list of crime-related instances in json format, please help deduplicate the list of instances in json format (crime events) based on similar content, considering both the time and the event details.
+                    YOU MUST RETAIN THE NECESSARY NEWS BASED ON INSTRUCTIONS.
                  """
      
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
