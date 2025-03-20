@@ -1,13 +1,10 @@
 from enum import Enum
 import requests
-import json
 import typing as t
 from newsplease.NewsArticle import NewsArticle
 from newsplease import NewsPlease
 import MySQLdb
 from langchain_openai import ChatOpenAI
-from langchain.chains import LLMChain
-from langchain.load import dumps, loads
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from screening_rag.preprocess.chunking import insert_chunk_table
@@ -78,8 +75,6 @@ class SortingBy(str, Enum):
     NEWEST = "newest"
     RELEVANCY = "relevance"
 
-
-
 def get_cnn_news(
     keyword: str,
     sort_by: SortingBy,
@@ -119,14 +114,11 @@ def get_cnn_news(
                 continue
             url = news["path"]          
             article = NewsPlease.from_url(url)
-            print(article)
-            print(article.date_publish)
-            print(latesttime)
+
             if article.date_publish > latesttime:
                 model = ChatOpenAI(model="gpt-4o", temperature=0) 
                 structured_model = model.with_structured_output(IsAdverseMedia)
                 is_adverse_media= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])])
-                print(is_adverse_media.result)
                 if is_adverse_media.result==True:
                     yield article
                     count +=1  
@@ -138,8 +130,6 @@ def get_cnn_news(
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    # parser.add_argument("keyword", help="The keyword to search on CNN", type=str)
-    # parser.add_argument("amount", help="The amount of the crawled articles", type=int)
     parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default=SortingBy.NEWEST)
     args = parser.parse_args()
 
@@ -156,12 +146,7 @@ if __name__ == "__main__":
                     DESC LIMIT 1""", 
                     (keyword,))
         latesttime = cur.fetchall()
-        print(latesttime)
         downloaded_news = get_cnn_news(keyword, args.sort_by, datetime(2025, 3, 10, 21, 19, 8)) 
-        # for news_article in downloaded_news:
-        #     print(news_article)
-
-
 
         for news_article in downloaded_news:
             cur.execute(
