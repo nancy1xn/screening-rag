@@ -11,7 +11,7 @@ from langchain.load import dumps, loads
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from screening_rag.preprocess.chunking import insert_chunk_table
-from screening_rag.preprocess.chunking_qdrant import process_and_insert_chunks_to_cnn_news_chunk_vectors
+from datetime import datetime
 
 # Define a pydantic model to enforce the output structure
 class IsAdverseMedia(BaseModel):
@@ -78,6 +78,8 @@ class SortingBy(str, Enum):
     NEWEST = "newest"
     RELEVANCY = "relevance"
 
+
+
 def get_cnn_news(
     keyword: str,
     sort_by: SortingBy,
@@ -97,33 +99,39 @@ def get_cnn_news(
     count = 0
     page = 1
     size_per_page = 3
-
-    web = requests.get(
-        'https://search.prod.di.api.cnn.io/content', 
-        params={
-            'q': keyword,
-            'size': size_per_page,
-            'sort': sort_by,
-            'from': (page-1)*3,
-            'page':page,
-            'request_id':'stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e',
-            'site':'cnn'
-        }
-    ) 
-    
-    news_collection = web.json().get("result")
-    for i , news in enumerate(news_collection):
-        if news["type"] == "VideoObject":
-            continue
-        url = news["path"]          
-        article = NewsPlease.from_url(url)
-        if news_article.date_publish > latesttime:
-            is_adverse_media= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])])
-            if is_adverse_media.result==True:
-                yield article
-                count +=1  
-        elif news_article.date_publish <= latesttime:
-            break                      
+    while True:
+        web = requests.get(
+            'https://search.prod.di.api.cnn.io/content', 
+            params={
+                'q': keyword,
+                'size': size_per_page,
+                'sort': sort_by,
+                'from': (page-1)*3,
+                'page':page,
+                'request_id':'stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e',
+                'site':'cnn'
+            }
+        ) 
+        
+        news_collection = web.json().get("result")
+        for i , news in enumerate(news_collection):
+            if news["type"] == "VideoObject":
+                continue
+            url = news["path"]          
+            article = NewsPlease.from_url(url)
+            print(article)
+            print(article.date_publish)
+            print(latesttime)
+            if article.date_publish > latesttime:
+                model = ChatOpenAI(model="gpt-4o", temperature=0) 
+                structured_model = model.with_structured_output(IsAdverseMedia)
+                is_adverse_media= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])])
+                print(is_adverse_media.result)
+                if is_adverse_media.result==True:
+                    yield article
+                    count +=1  
+            elif article.date_publish <= latesttime:
+                return                     
         page += 1
 
 
@@ -141,23 +149,34 @@ if __name__ == "__main__":
     cur=db.cursor()
 
     for keyword in keywords:
-        cur.execute("SELECT date_publish FROM my_database.CNN_NEWS WHERE keyword = %s ORDER BY date_publish DESC LIMIT 1", (keyword,))
+        cur.execute("""SELECT date_publish 
+                    FROM my_database.CNN_NEWS 
+                    WHERE keyword = %s 
+                    ORDER BY date_publish 
+                    DESC LIMIT 1""", 
+                    (keyword,))
         latesttime = cur.fetchall()
         print(latesttime)
         downloaded_news = get_cnn_news(keyword, args.sort_by, latesttime[0][0]) 
+        # for news_article in downloaded_news:
+        #     print(news_article)
+
+
 
         for news_article in downloaded_news:
             cur.execute(
                     """INSERT INTO my_database.CNN_NEWS (title, keyword, description, maintext, date_publish, url)
                     VALUES (%s, %s, %s, %s, %s, %s)""",
                     (news_article.title,
-                    args.keyword, 
+                    keyword, 
                     news_article.description, 
                     news_article.maintext, 
                     news_article.date_publish,
                     news_article.url)
                     )
             db.commit()
+            article_id = cur.lastrowid
+            insert_chunk_table(news_article, article_id)
 
     cur.execute("select * from my_database.CNN_NEWS")
     for row in cur.fetchall():
@@ -166,7 +185,6 @@ if __name__ == "__main__":
     cur.close()
     db.close()
 
-    insert_chunk_table()
-    process_and_insert_chunks_to_cnn_news_chunk_vectors()
+
     
     
