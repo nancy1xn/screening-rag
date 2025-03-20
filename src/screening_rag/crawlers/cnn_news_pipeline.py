@@ -1,19 +1,15 @@
 from enum import Enum
 import requests
-import json
 import typing as t
 from newsplease.NewsArticle import NewsArticle
 from newsplease import NewsPlease
 import MySQLdb
 from langchain_openai import ChatOpenAI
-from langchain.chains import LLMChain
-from langchain.load import dumps, loads
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from screening_rag.preprocess.chunking import insert_chunk_table
 from qdrant_client import QdrantClient, models
 
-# Define a pydantic model to enforce the output structure
 class IsAdverseMedia(BaseModel):
     """Check if the media content is considered as adverse media.
 
@@ -59,11 +55,9 @@ class IsAdverseMedia(BaseModel):
             `requests.get('https://search.prod.di.api.cnn.io/content', params={{'q': keyword}})`
             """ )
 
-# Create an instance of the model and enforce the output structure
 model = ChatOpenAI(model="gpt-4o", temperature=0) 
 structured_model = model.with_structured_output(IsAdverseMedia)
 
-# Define the system prompt
 system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime, please return boolean: True. If the news is not related to financial crime, please return boolean: False"""
 
 class SortingBy(str, Enum):
@@ -160,7 +154,6 @@ if __name__ == "__main__":
         PRIMARY KEY(ID),
         FOREIGN KEY (parent_article_id) REFERENCES CNN_NEWS(ID));""")
     
-    # create collections
     client = QdrantClient(url="http://localhost:6333")
     client.create_collection(
         collection_name="cnn_news_chunk_vectors",
