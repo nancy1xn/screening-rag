@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from screening_rag.preprocess.crime import Crime
 from screening_rag.preprocess import crime
-
+from qdrant_client import QdrantClient, models
     
 
 class NewsSummary(BaseModel):
@@ -182,6 +182,13 @@ if __name__ == "__main__":
                 FOREIGN KEY (parent_crime_id) REFERENCES CRIME_CNN_NEWS(ID)
                 );
     """) 
+
+    # create collections
+    client = QdrantClient(url="http://localhost:6333")
+    client.create_collection(
+        collection_name="crime_cnn_news_vectors",
+        vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
+    )
 
     for news_article, crimes in downloaded_news:
         for c in crimes:
