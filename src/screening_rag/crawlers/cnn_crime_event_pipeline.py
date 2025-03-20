@@ -162,7 +162,7 @@ if __name__ == "__main__":
         cur.execute("SELECT date_publish FROM my_database.CRIME_CNN_NEWS WHERE keyword = %s ORDER BY date_publish DESC LIMIT 1", (keyword,))
         latesttime = cur.fetchall()
         print(latesttime)
-        downloaded_news = get_cnn_news(keyword, args.sort_by, latesttime[0][0]) 
+        downloaded_news = get_cnn_news(keyword, args.sort_by, datetime(2025, 3, 10, 21, 19, 8)) 
 
         for news_article, crimes in downloaded_news:
             for c in crimes:
