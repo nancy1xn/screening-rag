@@ -7,7 +7,7 @@ import MySQLdb
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
-from screening_rag.preprocess.chunking import insert_chunk_table
+from screening_rag.preprocess.cnn_news_chunking import insert_chunk_table
 from qdrant_client import QdrantClient, models
 
 class IsAdverseMedia(BaseModel):
