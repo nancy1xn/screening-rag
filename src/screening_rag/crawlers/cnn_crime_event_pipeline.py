@@ -1,4 +1,3 @@
-import streamlit as st
 from enum import Enum
 import requests
 import typing as t
@@ -7,8 +6,6 @@ from newsplease.NewsArticle import NewsArticle
 from newsplease import NewsPlease
 import MySQLdb
 from langchain_openai import ChatOpenAI
-from langchain.chains import LLMChain
-from langchain.load import dumps, loads
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from screening_rag.preprocess.crime import Crime
@@ -68,11 +65,9 @@ class NewsSummary(BaseModel):
     crimes: t.List[Crime] = Field(
             description="Please list all financial crime events reported in the news and summarize them in response to the questions defined in the 'Class Crime' section.")
 
-# Create an instance of the model and enforce the output structure
 model = ChatOpenAI(model="gpt-4o", temperature=0) 
 structured_model = model.with_structured_output(NewsSummary)
 
-# Define the system prompt
 system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event, 
             please return boolean: True. If the news is not related to financial crime, please return boolean: False.
 
@@ -183,7 +178,6 @@ if __name__ == "__main__":
                 );
     """) 
 
-    # create collections
     client = QdrantClient(url="http://localhost:6333")
     client.create_collection(
         collection_name="crime_cnn_news_vectors",
@@ -208,11 +202,8 @@ if __name__ == "__main__":
                 c.enforcement_action,
                 news_article.url),
             )
-            c.id = cur.lastrowid #cursor.lastrowid 是 資料庫游標（cursor） 物件的一個屬性，用來 取得最後一次執行 INSERT 語句時，自動產生的主鍵 ID
-            print(c.id)
+            c.id = cur.lastrowid 
 
-            # print(crime.subjects)
-            # print(type(crime.subjects))
             crime.insert_to_qdrant(c)
 
             for subject in c.subjects:
@@ -221,7 +212,6 @@ if __name__ == "__main__":
                     (subject, c.id),
                 )
                 db.commit()
-        print(crimes)
 
     cur.execute("select * from my_database.CRIME_CNN_NEWS")
     for row in cur.fetchall():
@@ -230,12 +220,3 @@ if __name__ == "__main__":
     cur.execute("select * from my_database.SUBJECT_CNN_NEWS")
     for row in cur.fetchall():
          print(row)
-
-    # for news_article, crimes in get_news:
-    #     for crime in crimes:
-    #         crime_subjects= ",".join(crime.subjects) if isinstance(crime.subjects, (list)) else crime.subjects
-            # insert_vectors(crime_subjects)
-            # try:
-    # insert_vectors(1)
-            # except Exception as e:
-            #     print(f"insert_vectors 錯誤: {e}")
