@@ -11,7 +11,7 @@ from langchain.load import dumps, loads
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from screening_rag.preprocess.chunking import insert_chunk_table
-from screening_rag.preprocess.chunking_qdrant import process_and_insert_chunks_to_cnn_news_chunk_vectors
+from qdrant_client import QdrantClient, models
 
 # Define a pydantic model to enforce the output structure
 class IsAdverseMedia(BaseModel):
@@ -150,6 +150,22 @@ if __name__ == "__main__":
                 date_publish DATETIME, 
                 url VARCHAR(300), 
                 PRIMARY KEY(ID));""") 
+    
+    cur.execute("""CREATE TABLE CHUNK_CNN_NEWS (
+        ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        text VARCHAR(1000),
+        start_position INT UNSIGNED,
+        end_position INT UNSIGNED,
+        parent_article_id BIGINT UNSIGNED NOT NULL,
+        PRIMARY KEY(ID),
+        FOREIGN KEY (parent_article_id) REFERENCES CNN_NEWS(ID));""")
+    
+    # create collections
+    client = QdrantClient(url="http://localhost:6333")
+    client.create_collection(
+        collection_name="cnn_news_chunk_vectors",
+        vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
+    )
 
     for news_article in downloaded_news:
         cur.execute(
@@ -162,13 +178,17 @@ if __name__ == "__main__":
                 news_article.date_publish,
                 news_article.url)
                 )
+        article_id = cur.lastrowid
         db.commit()
+
+        insert_chunk_table(news_article, article_id)
+
     cur.execute("select * from my_database.CNN_NEWS")
     for row in cur.fetchall():
         print(row)
     cur.close()
     db.close()
-    insert_chunk_table()
-    process_and_insert_chunks_to_cnn_news_chunk_vectors()
+
+
     
     
