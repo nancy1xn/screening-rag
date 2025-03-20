@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from screening_rag.preprocess.crime import Crime
 from screening_rag.preprocess import crime
+from datetime import datetime
 
     
 
@@ -113,34 +114,34 @@ def get_cnn_news(
     count = 0
     page = 1
     size_per_page = 3
-
-    web = requests.get(
-        'https://search.prod.di.api.cnn.io/content', 
-        params={
-            'q': keyword,
-            'size': size_per_page,
-            'sort': sort_by,
-            'from': (page-1)*size_per_page,
-            'page':page,
-            'request_id':'stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e',
-            'site':'cnn'
-        }
-    ) 
-    
-    news_collection = web.json().get("result")
-    for i , news in enumerate(news_collection):
-        if news["type"] == "VideoObject":
-            continue
-        url = news["path"]          
-        news_article = NewsPlease.from_url(url)
-        if news_article.date_publish > latesttime:
-            news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=news_article.get_serializable_dict()['maintext'])]+[HumanMessage(content=news_article.get_serializable_dict()['date_publish'])])
-            news_summary: NewsSummary
-            if news_summary.is_adverse_news==True:
-                yield news_article, news_summary.crimes
-                count +=1              
-        elif news_article.date_publish <= latesttime:
-            break
+    while True: #!!!
+        web = requests.get(
+            'https://search.prod.di.api.cnn.io/content', 
+            params={
+                'q': keyword,
+                'size': size_per_page,
+                'sort': sort_by,
+                'from': (page-1)*size_per_page,
+                'page':page,
+                'request_id':'stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e',
+                'site':'cnn'
+            }
+        ) 
+        
+        news_collection = web.json().get("result")
+        for i , news in enumerate(news_collection):
+            if news["type"] == "VideoObject":
+                continue
+            url = news["path"]          
+            news_article = NewsPlease.from_url(url)
+            if news_article.date_publish > latesttime:
+                news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=news_article.get_serializable_dict()['maintext'])]+[HumanMessage(content=news_article.get_serializable_dict()['date_publish'])])
+                news_summary: NewsSummary
+                if news_summary.is_adverse_news==True:
+                    yield news_article, news_summary.crimes
+                    count +=1              
+            elif news_article.date_publish <= latesttime:
+                return  #!!!
         page += 1
 
 
