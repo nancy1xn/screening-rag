@@ -6,7 +6,7 @@ from langchain.text_splitter import(
 from langchain_text_splitters.sentence_transformers import SentenceTransformersTokenTextSplitter
 import MySQLdb
 from newsplease.NewsArticle import NewsArticle
-from screening_rag.preprocess.chunking_qdrant import process_and_insert_chunks_to_cnn_news_chunk_vectors
+from screening_rag.preprocess.cnn_news_chunking_to_qdrant import process_and_insert_chunks_to_cnn_news_chunk_vectors
 
 def insert_chunk_table(news_article:NewsArticle, article_id):
 
