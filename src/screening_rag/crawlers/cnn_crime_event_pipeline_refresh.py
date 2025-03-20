@@ -1,4 +1,3 @@
-import streamlit as st
 from enum import Enum
 import requests
 import typing as t
@@ -14,8 +13,6 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from screening_rag.preprocess.crime import Crime
 from screening_rag.preprocess import crime
 from datetime import datetime
-
-    
 
 class NewsSummary(BaseModel):
     """
@@ -69,11 +66,9 @@ class NewsSummary(BaseModel):
     crimes: t.List[Crime] = Field(
             description="Please list all financial crime events reported in the news and summarize them in response to the questions defined in the 'Class Crime' section.")
 
-# Create an instance of the model and enforce the output structure
 model = ChatOpenAI(model="gpt-4o", temperature=0) 
 structured_model = model.with_structured_output(NewsSummary)
 
-# Define the system prompt
 system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event, 
             please return boolean: True. If the news is not related to financial crime, please return boolean: False.
 
@@ -148,8 +143,6 @@ def get_cnn_news(
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    # parser.add_argument("keyword", help="The keyword to search on CNN", type=str)
-    # parser.add_argument("amount", help="The amount of the crawled articles", type=int)
     parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default=SortingBy.NEWEST)
     args = parser.parse_args()
 
@@ -161,7 +154,6 @@ if __name__ == "__main__":
     for keyword in keywords:
         cur.execute("SELECT date_publish FROM my_database.CRIME_CNN_NEWS WHERE keyword = %s ORDER BY date_publish DESC LIMIT 1", (keyword,))
         latesttime = cur.fetchall()
-        print(latesttime)
         downloaded_news = get_cnn_news(keyword, args.sort_by, datetime(2025, 3, 10, 21, 19, 8)) 
 
         for news_article, crimes in downloaded_news:
@@ -182,11 +174,7 @@ if __name__ == "__main__":
                     c.enforcement_action,
                     news_article.url),
                 )
-                c.id = cur.lastrowid #cursor.lastrowid 是 資料庫游標（cursor） 物件的一個屬性，用來 取得最後一次執行 INSERT 語句時，自動產生的主鍵 ID
-                print(c.id)
-
-                # print(crime.subjects)
-                # print(type(crime.subjects))
+                c.id = cur.lastrowid 
 
                 crime.insert_to_qdrant(c)
 
@@ -196,7 +184,6 @@ if __name__ == "__main__":
                         (subject, c.id),
                     )
                     db.commit()
-            print(crimes)
 
     cur.execute("select * from my_database.CRIME_CNN_NEWS")
     for row in cur.fetchall():
@@ -205,12 +192,3 @@ if __name__ == "__main__":
     cur.execute("select * from my_database.SUBJECT_CNN_NEWS")
     for row in cur.fetchall():
          print(row)
-
-    # for news_article, crimes in get_news:
-    #     for crime in crimes:
-    #         crime_subjects= ",".join(crime.subjects) if isinstance(crime.subjects, (list)) else crime.subjects
-            # insert_vectors(crime_subjects)
-            # try:
-    # insert_vectors(1)
-            # except Exception as e:
-            #     print(f"insert_vectors 錯誤: {e}")
