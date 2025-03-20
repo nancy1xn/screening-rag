@@ -8,7 +8,7 @@ import MySQLdb
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
-from screening_rag.preprocess.crime import Crime
+from screening_rag.preprocess.cnn_crime_event import Crime
 from screening_rag.preprocess import crime
 from qdrant_client import QdrantClient, models
     
