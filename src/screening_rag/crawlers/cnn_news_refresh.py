@@ -157,7 +157,7 @@ if __name__ == "__main__":
                     (keyword,))
         latesttime = cur.fetchall()
         print(latesttime)
-        downloaded_news = get_cnn_news(keyword, args.sort_by, latesttime[0][0]) 
+        downloaded_news = get_cnn_news(keyword, args.sort_by, datetime(2025, 3, 10, 21, 19, 8)) 
         # for news_article in downloaded_news:
         #     print(news_article)
 
