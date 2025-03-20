@@ -31,15 +31,6 @@ class SubquestionRelatedChunks(BaseModel):
     violated_laws:Optional[str]
     enforcement_action:Optional[str]
 
-    # def __init__(self, original_question, crime_id, time, subjects, summary, adverse_info_type, violated_laws, enforcement_action):
-    #     self.original_question = original_question
-    #     self.crime_id = crime_id
-    #     self.time = time
-    #     self.subjects = subjects
-    #     self.summary = summary
-    #     self.adverse_info_type = adverse_info_type
-    #     self.violated_laws = violated_laws
-    #     self.enforcement_action = enforcement_action
 
 class ChatReport(BaseModel):
     result: List[str] = Field(
@@ -87,8 +78,6 @@ def gen_report(
         ]
     ]
 
-# Group2
-    #select from subject table in set format
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
     cur=db.cursor()
     cur.execute("SELECT DISTINCT subject FROM my_database.SUBJECT_CNN_NEWS")
@@ -101,9 +90,6 @@ def gen_report(
                     SystemMessage(content=system_prompt_subjectkeywords),
                     HumanMessage(content=str(multiple_subjects_name_subset)),
                     HumanMessage(content=keyword)])
-    # print(generated_subjects)
-    # raise ValueError
-    # print(original_question[1])
     question_openai_vectors_group_2 = embeddings.embed_documents(original_question[1])
     question_openai_vectors_group_2: t.List[List[float]]
     search_results_group_2 = client.query_points(
@@ -123,9 +109,7 @@ def gen_report(
     )
     saved_chunks_group_2 = []
     for search_result_group_2 in search_results_group_2.points:
-        # print(search_result_group_2)
-        if search_result_group_2.score>=0.41: #fuzzy search?
-        # if subject in search_result_group_2.payload["subjects"]:
+        if search_result_group_2.score>=0.41: 
             saved_chunks_group_2.append(SubquestionRelatedChunks(
             original_question = original_question[1][0], 
             crime_id = search_result_group_2.payload["id"], 
@@ -154,10 +138,8 @@ def gen_report(
         SystemMessage(content=system_ans),
         HumanMessage(content=json_sorted_time_saved_chunks_group_2),
 
-    ]) #把original_question+searched_chunks+score一起丟入
-    # print(aggregated_2nd_level)
+    ])
    
-
     final_appendix_2 =[]
     saved_final_answers =[]
 
@@ -170,7 +152,6 @@ def gen_report(
                     final_appendix_2.append(row)
     
     sorted_appendix_2 = sorted(final_appendix_2, key =lambda x: x[0])
-
     saved_final_answers.append({
             "Adverse Information Report Headline":aggregated_2nd_level.result, 
             "Appendix of Adverse Information Report Headline":sorted_appendix_2}) 
