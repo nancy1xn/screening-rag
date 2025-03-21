@@ -11,51 +11,7 @@ from screening_rag.preprocess.cnn_news_chunking import insert_chunk_table
 from qdrant_client import QdrantClient, models
 from screening_rag.preprocess.cnn_crime_event import Crime
 from screening_rag.preprocess import cnn_crime_event
-
-# class IsAdverseMedia(BaseModel):
-#     """Check if the media content is considered as adverse media.
-
-#     Define the guidelines for checking if the media contents is an adverse media related to financial crime.
-#     The result will be 'True' if adverse media is found, and 'False' otherwise.
-
-#     Attributes:
-#         result: A boolean indicating if the media content is an adverse media or not.
-#     """
-
-#     result: bool = Field(
-#         description="""You are a helpful assistant to determine if the news mentions the search object (input keyword) that is related to financial crime.
-#             Please only return as format boolean (True/False) and determine whether the news related to financial crime as per the below criteria committed by the search object (input keyword).
-
-#             (1) If the news is related to financial crime, please return boolean: True
-#             (2) If the news is not related to financial crime, please return boolean: False
-    
-
-#             **Criteria for Financial Crime**:
-#             Financial crime includes the following categories (Media coverage triggers: Regulatory Enforcement Actions, Convictions, Ongoing investigations, or allegations related to these):
-
-#             1. Money laundering
-#             2. Bribery and corruption
-#             3. Fraud or weakness in fraud prevention controls
-#             4. Stock exchange irregularities, insider trading, market manipulation
-#             5. Accounting irregularities
-#             6. Tax evasion and other tax crimes (related to direct and indirect taxes)
-#             7. Regulatory enforcement actions against entities in the regulated sector with links to the client
-#             8. Major sanctions breaches (including dealings with or othr involvement with Sanction countries or Territories or Countries Subject to Extensive Sanction Regimes)
-#             9. Terrorism (including terrorist financing)
-#             10. Illicit trafficking in narcotic drugs and psychotropic substances, arms trafficking or stolen goods
-#             11. Smuggling(including in relation to customs and excise duties and taxes)
-#             12. Human trafficking or migrant smuggling
-#             13. Sexual exploitation of child labor
-#             14. Extortion, counterfeiting, forgery, piracy of products
-#             15. Organized crime or racketeering
-#             16. Benefiting from serious offences (e.g., kidnapping, illegal restraint, hostage-taking, robbery, theft, murder, or causing frievous bodily injury)
-#             17. Benefiting from environmental crimes
-#             18. Benefiting from other unethical or criminal behavior
-
-#             **Search Object**:
-#             The search object refers to the keyword used to search for relevant news. In this case, it would be the term provided via a search request, for example:
-#             `requests.get('https://search.prod.di.api.cnn.io/content', params={{'q': keyword}})`
-#             """ )
+from datetime import datetime
 
 class NewsSummary(BaseModel):
     """
@@ -109,7 +65,6 @@ class NewsSummary(BaseModel):
     crimes: t.List[Crime] = Field(
             description="Please list all financial crime events reported in the news and summarize them in response to the questions defined in the 'Class Crime' section.")
 
-
 class SortingBy(str, Enum):
     """Represent different sorting logics for media.
 
@@ -159,22 +114,6 @@ def get_cnn_news(
         article = NewsPlease.from_url(url)
         yield article
 
-#cnn_news_mode
-# def handle_cnn_news(
-#     article:NewsArticle, 
-# )-> t.Iterable[NewsArticle]:
-    
-#     model = ChatOpenAI(model="gpt-4o", temperature=0) 
-#     structured_model = model.with_structured_output(IsAdverseMedia)
-#     system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime, please return boolean: True. 
-#             If the news is not related to financial crime, please return boolean: False"""
-#     is_adverse_media= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])])
-    
-#     if is_adverse_media.result==True:
-#         yield article
-#     else:
-#         return 
-
 #cnn_news_and_crime_event_mode
 def handle_news_and_crimes (
     article:NewsArticle, 
@@ -209,22 +148,11 @@ def cnn_news_and_crimes_pipeline(
     while count<amount:
         news_article = get_cnn_news(keyword, sort_by, page)
         for news in news_article:
-        #     if handle_cnn_news(news) is not None:
-        #         filtered_news = handle_cnn_news(news)
-        #         for filtered_news_item in filtered_news:
-        #             if count>=amount:
-        #                 break
-        #             news_article_collection.append(filtered_news_item)
-        #             count = len(news_article_collection)
-
             if handle_news_and_crimes(news) is not None:
                 filtered_news_and_crimes = handle_news_and_crimes(news)
                 for filtered_news_and_crimes_item in filtered_news_and_crimes:
-
                     filtered_news = filtered_news_and_crimes_item[0]
                     filtered_crimes_list = filtered_news_and_crimes_item[1]
-                    # print(filtered_news)
-                    # print(filtered_crimes_list)
 
                     if count>=amount:
                         break
@@ -367,39 +295,118 @@ def insert_crime_into_table(keyword:str, news_article: NewsArticle, crime:Crime)
     cur.execute("select * from my_database.CRIME_CNN_NEWS where ID =%s", (crime.id,))
     for row in cur.fetchall():
           print(row)
-
     cur.execute("select * from my_database.SUBJECT_CNN_NEWS")
     for row in cur.fetchall():
          print(row) 
+    cur.close()
+    db.close() 
 
+def get_latest_time_for_cnn_news(keyword: t.List[str]):
+    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
+    cur=db.cursor()
+    cur.execute("""SELECT date_publish 
+        FROM my_database.CNN_NEWS 
+        WHERE keyword = %s 
+        ORDER BY date_publish 
+        DESC LIMIT 1""", 
+        (keyword,))
+    db.commit()
+    latesttime_for_cnn_news = cur.fetchall()
+    print(latesttime_for_cnn_news)
+    
+    cur.close()
+    db.close() 
+    return latesttime_for_cnn_news
+
+def handle_and_renew_news_and_crimes(article:NewsArticle, latesttime): 
+    model = ChatOpenAI(model="gpt-4o", temperature=0) 
+    structured_model = model.with_structured_output(NewsSummary)
+
+    system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event, 
+                please return boolean: True. If the news is not related to financial crime, please return boolean: False.
+
+                In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time (ONLY USE "news published date"((newsarticle.date_publish))）, the event, 
+                the crime type, the direct object of wrongdoing, and the laws or regulations action."""
+
+    if article.date_publish > latesttime:
+        news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])]+[HumanMessage(content=article.get_serializable_dict()['date_publish'])])
+        news_summary: NewsSummary
+        print(news_summary.is_adverse_news)
+        if news_summary.is_adverse_news==True:
+            print(article)
+            print(news_summary.crimes)
+            print(article.date_publish)
+            yield article, news_summary.crimes, news_summary         
+        elif article.date_publish <= latesttime: #可以這樣寫嗎？
+            return 
+
+def renew_cnn_news_and_crimes_pipeline(
+    keyword: str,
+    sort_by: SortingBy,
+    latesttime: datetime)-> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
+    
+    page = 1
+    news_article_collection = []
+    max_page =10
+
+    while True: #可以這樣寫嗎？
+        news_article = get_cnn_news(keyword, sort_by, page)
+        for news in news_article:
+            print(news)
+            if handle_and_renew_news_and_crimes(news, latesttime) is not None:
+                filtered_news_and_crimes = handle_and_renew_news_and_crimes(news, latesttime)
+                for filtered_news_and_crimes_item in filtered_news_and_crimes:
+                    filtered_news = filtered_news_and_crimes_item[0]
+                    filtered_crimes_list = filtered_news_and_crimes_item[1]
+                    
+                    news_article_collection.append((filtered_news,filtered_crimes_list))
+
+                    if filtered_news.date_publish <= latesttime:
+                        return news_article_collection
+        page+=1
+        
+    return news_article_collection #為何原本while true會是半透明
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument("keyword", help="The keyword to search on CNN", type=str)
-    parser.add_argument("amount", help="The amount of the crawled articles", type=int)
+    parser.add_argument("--mode", choices=["mode_initialize", "mode_renew"], required=True, help="choose mode_initialize or mode_renew")
+    parser.add_argument("--keyword", help="The keyword to search on CNN", type=str)
+    parser.add_argument("--amount", help="The amount of the crawled articles", type=int)
     parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default=SortingBy.RELEVANCY)
     args = parser.parse_args()
 
-    # downloaded_news = cnn_news_pipeline(args.keyword, args.amount, args.sort_by)
-    downloaded_news_and_crimes = cnn_news_and_crimes_pipeline(args.keyword, args.amount, args.sort_by)
+    if args.mode == "mode_initialize":
+        downloaded_news_and_crimes = cnn_news_and_crimes_pipeline(args.keyword, args.amount, args.sort_by)
 
-    reset_and_create_cnn_news_data_storage()
-    reset_and_create_crimes_data_storage()
+        reset_and_create_cnn_news_data_storage()
+        reset_and_create_crimes_data_storage()
 
-    for news_and_crimes in downloaded_news_and_crimes:
-        news_article, crimes = news_and_crimes
-        # news_article, article_id = insert_cnn_news_into_table(args.keyword, news_article)
-        # insert_chunk_table(news_article, article_id)
+        for news_and_crimes in downloaded_news_and_crimes:
+            news_article, crimes = news_and_crimes
+            news_article, article_id = insert_cnn_news_into_table(args.keyword, news_article)
+            insert_chunk_table(news_article, article_id)
 
-        for crime in crimes:
-            insert_crime_into_table(args.keyword, news_article, crime)
-            cnn_crime_event.insert_to_qdrant(crime)
+            for crime in crimes:
+                insert_crime_into_table(args.keyword, news_article, crime)
+                cnn_crime_event.insert_to_qdrant(crime)
+
+    if args.mode == "mode_renew": #遇到比最新的日期舊時,沒有停＋後續要分兩個latesttime並插入兩個不同table
+        keywords = ["JP Morgan financial crime"]
+        for keyword in keywords:
+            latesttime_for_cnn_news= get_latest_time_for_cnn_news(keyword)
+            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by, datetime(2025, 3, 12, 21, 19, 8))
+            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by,latesttime_for_cnn_news)
+            print(renewed_news_and_crimes)
+            # for news_and_crimes in renewed_news_and_crimes:
+
+
 
 
 #news collection
     #CURL -L -X GET 'http://localhost:6333/collections/cnn_news_chunk_vectors/points/1'
-    #curl -X DELETE "http://localhost:6333/collections/cnn_news_chunk_vectors"
+    #CURL -X DELETE "http://localhost:6333/collections/cnn_news_chunk_vectors"
+
 #crime collection
     #CURL -L -X GET 'http://localhost:6333/collections/crime_cnn_news_vectors/points/1'
-    #curl -X DELETE "http://localhost:6333/collections/crime_cnn_news_vectors"
+    #CURL -X DELETE "http://localhost:6333/collections/crime_cnn_news_vectors"
