@@ -74,8 +74,8 @@ class SortingBy(str, Enum):
 
 def get_cnn_news(
     keyword: str,
-    amount: int,
     sort_by: SortingBy,
+    page
 ) -> t.Iterable[NewsArticle]:
     """Retrieve NewsArticle Objects related to financial crime.
     
@@ -87,37 +87,103 @@ def get_cnn_news(
         sort_by(SortingBy): The search critera to sort media by "newest" or "relevance". If SortingBy.NEWEST: Sort media by the latest to the oldest.
                             If SortingBy.RELEVANCY: Sort media by the most relevant to the least relevant. 
     """
-
-    count = 0
-    page = 1
+    # count = 0
+    # page = 1
     size_per_page = 3
-    while count < amount:
-        web = requests.get(
-            'https://search.prod.di.api.cnn.io/content', 
-            params={
-                'q': keyword,
-                'size': size_per_page,
-                'sort': sort_by,
-                'from': (page-1)*3,
-                'page':page,
-                'request_id':'stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e',
-                'site':'cnn'
-            }
-        ) 
+    # news_article_collection = []
+    # while count < amount:
+    web = requests.get(
+        'https://search.prod.di.api.cnn.io/content', 
+        params={
+            'q': keyword,
+            'size': size_per_page,
+            'sort': sort_by,
+            'from': (page-1)*3,
+            'page':page,
+            'request_id':'stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e',
+            'site':'cnn'
+        }
+    ) 
+    news_collection = web.json().get("result")
+    for i , news in enumerate(news_collection):
+        if news["type"] == "VideoObject":
+            continue
+        url = news["path"]          
+        article = NewsPlease.from_url(url)
+        # news_article_collection.append(article)
+        # return news_article_collection
+        yield article
+
+
+def handle_cnn_news(article:NewsArticle, count)-> t.Iterable[NewsArticle]:
+    print(article)
+    is_adverse_media= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])])
+    if is_adverse_media.result==True:
+        print(is_adverse_media.result)
+        count+=1
+        print(count)
+        yield article, count 
+    else:
+        print(is_adverse_media.result)
+        return 
+
+# def handle_cnn_news(news_article: t.List[NewsArticle], count)-> t.Iterable[NewsArticle]:
+
+    # def is_adverse_media (article):
+    #     is_adverse_media= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])])
+    #     return is_adverse_media.result
         
-        news_collection = web.json().get("result")
-        for i , news in enumerate(news_collection):
-            if news["type"] == "VideoObject":
-                continue
-            url = news["path"]          
-            article = NewsPlease.from_url(url)
-            is_adverse_media= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])])
-            if is_adverse_media.result==True:
-                 yield article
-                 count +=1                
-            if count>=amount:
-                break
-        page += 1
+    # filtered_news_collection = list(filter(is_adverse_media, news_article_collection))
+    # print(filtered_news_collection)
+    # count+= len(filtered_news_collection)
+    
+    # return filtered_news_collection, count
+
+
+# def handle_crime ():
+#             news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=news_article.get_serializable_dict()['maintext'])]+[HumanMessage(content=news_article.get_serializable_dict()['date_publish'])])
+#             news_summary: t.NewsSummary
+#             if news_summary.is_adverse_news==True:
+#                  yield news_article, news_summary.crimes
+#                  count +=1                
+#             # if count>=amount:
+#             #     break
+#         # page += 1
+
+
+def cnn_news_pipeline(
+    keyword: str,
+    amount: int,
+    sort_by: SortingBy,)-> t.Iterable[NewsArticle]:
+    
+    count = 0
+    page = 0
+    news_article_collection = []
+    while count<amount:
+        news_article = get_cnn_news(keyword, sort_by, page)
+        # news_article_collection.append(get_cnn_news(keyword, sort_by, page))
+        # print(news_article_collection)
+        for news in news_article:
+            if handle_cnn_news(news, count) is not None:
+                filtered_news_and_count= handle_cnn_news(news, count)
+                for f in filtered_news_and_count:
+                    print(f)
+                    filtered_news=f[0] 
+                    count = f[1]
+                    news_article_collection.append(filtered_news)
+                    # print(f[0])
+                    # print(f[1])
+                    # raise ValueError
+        
+        # downloded_news, count= handle_cnn_news(news_article_collection, count)
+        # print(downloded_news)
+        # print(count)
+                    if count>=amount:
+                        break
+        page+=1
+    
+    return news_article_collection
+    
 
 
 if __name__ == "__main__":
@@ -128,7 +194,11 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default=SortingBy.RELEVANCY)
     args = parser.parse_args()
 
-    downloaded_news = get_cnn_news(args.keyword, args.amount, args.sort_by)
+    downloaded_news = cnn_news_pipeline(args.keyword, args.amount, args.sort_by)
+    for news in downloaded_news:
+        print(news)
+
+    raise ValueError
 
     db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
     cur=db.cursor()
