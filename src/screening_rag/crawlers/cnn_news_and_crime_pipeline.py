@@ -328,17 +328,15 @@ def handle_and_renew_news_and_crimes(article:NewsArticle, latesttime):
                 In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time (ONLY USE "news published date"((newsarticle.date_publish))）, the event, 
                 the crime type, the direct object of wrongdoing, and the laws or regulations action."""
 
-    if article.date_publish > latesttime:
-        news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])]+[HumanMessage(content=article.get_serializable_dict()['date_publish'])])
-        news_summary: NewsSummary
-        print(news_summary.is_adverse_news)
-        if news_summary.is_adverse_news==True:
-            print(article)
-            print(news_summary.crimes)
-            print(article.date_publish)
-            yield article, news_summary.crimes, news_summary         
-        elif article.date_publish <= latesttime: #可以這樣寫嗎？
-            return 
+    # if article.date_publish > latesttime:
+    news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])]+[HumanMessage(content=article.get_serializable_dict()['date_publish'])])
+    news_summary: NewsSummary
+    print(news_summary.is_adverse_news)
+    if news_summary.is_adverse_news==True:
+        print(news_summary.crimes)
+        yield article, news_summary.crimes, news_summary         
+    # elif article.date_publish <= latesttime:
+    #     return 
 
 def renew_cnn_news_and_crimes_pipeline(
     keyword: str,
@@ -347,25 +345,24 @@ def renew_cnn_news_and_crimes_pipeline(
     
     page = 1
     news_article_collection = []
-    max_page =10
 
     while True: #可以這樣寫嗎？
         news_article = get_cnn_news(keyword, sort_by, page)
         for news in news_article:
             print(news)
-            if handle_and_renew_news_and_crimes(news, latesttime) is not None:
+            print(news.date_publish)
+            print(latesttime)
+            if news.date_publish > latesttime:
+            # if handle_and_renew_news_and_crimes(news, latesttime) is not None:
                 filtered_news_and_crimes = handle_and_renew_news_and_crimes(news, latesttime)
                 for filtered_news_and_crimes_item in filtered_news_and_crimes:
                     filtered_news = filtered_news_and_crimes_item[0]
                     filtered_crimes_list = filtered_news_and_crimes_item[1]
-                    
                     news_article_collection.append((filtered_news,filtered_crimes_list))
-
-                    if filtered_news.date_publish <= latesttime:
-                        return news_article_collection
+            elif news.date_publish <= latesttime:
+            # if filtered_news.date_publish <= latesttime:
+                return news_article_collection
         page+=1
-        
-    return news_article_collection #為何原本while true會是半透明
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -377,28 +374,37 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.mode == "mode_initialize":
-        downloaded_news_and_crimes = cnn_news_and_crimes_pipeline(args.keyword, args.amount, args.sort_by)
+        keywords = ["JP Morgan financial crime"]
+        for keyword in keywords:
+            downloaded_news_and_crimes = cnn_news_and_crimes_pipeline(keyword, args.amount, args.sort_by)
 
-        reset_and_create_cnn_news_data_storage()
-        reset_and_create_crimes_data_storage()
+            reset_and_create_cnn_news_data_storage()
+            reset_and_create_crimes_data_storage()
 
-        for news_and_crimes in downloaded_news_and_crimes:
-            news_article, crimes = news_and_crimes
-            news_article, article_id = insert_cnn_news_into_table(args.keyword, news_article)
-            insert_chunk_table(news_article, article_id)
+            for news_and_crimes in downloaded_news_and_crimes:
+                news_article, crimes = news_and_crimes
+                news_article, article_id = insert_cnn_news_into_table(args.keyword, news_article)
+                insert_chunk_table(news_article, article_id)
 
-            for crime in crimes:
-                insert_crime_into_table(args.keyword, news_article, crime)
-                cnn_crime_event.insert_to_qdrant(crime)
+                for crime in crimes:
+                    insert_crime_into_table(args.keyword, news_article, crime)
+                    cnn_crime_event.insert_to_qdrant(crime)
 
-    if args.mode == "mode_renew": #遇到比最新的日期舊時,沒有停＋後續要分兩個latesttime並插入兩個不同table
+    if args.mode == "mode_renew": 
         keywords = ["JP Morgan financial crime"]
         for keyword in keywords:
             latesttime_for_cnn_news= get_latest_time_for_cnn_news(keyword)
-            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by, datetime(2025, 3, 12, 21, 19, 8))
-            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by,latesttime_for_cnn_news)
+            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by, datetime(2025, 3, 12, 21, 19, 8))
+            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by,latesttime_for_cnn_news)
             print(renewed_news_and_crimes)
-            # for news_and_crimes in renewed_news_and_crimes:
+            for news_and_crimes in renewed_news_and_crimes:
+                news_article, crimes = news_and_crimes
+                news_article, article_id = insert_cnn_news_into_table(args.keyword, news_article)
+                insert_chunk_table(news_article, article_id)
+
+                for crime in crimes:
+                    insert_crime_into_table(args.keyword, news_article, crime)
+                    cnn_crime_event.insert_to_qdrant(crime)
 
 
 
