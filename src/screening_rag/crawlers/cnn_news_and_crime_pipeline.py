@@ -346,7 +346,7 @@ def renew_cnn_news_and_crimes_pipeline(
     page = 1
     news_article_collection = []
 
-    while True: #可以這樣寫嗎？
+    while True:
         news_article = get_cnn_news(keyword, sort_by, page)
         for news in news_article:
             print(news)
@@ -383,7 +383,7 @@ if __name__ == "__main__":
 
             for news_and_crimes in downloaded_news_and_crimes:
                 news_article, crimes = news_and_crimes
-                news_article, article_id = insert_cnn_news_into_table(args.keyword, news_article)
+                news_article, article_id = insert_cnn_news_into_table(keyword, news_article)
                 insert_chunk_table(news_article, article_id)
 
                 for crime in crimes:
@@ -394,12 +394,13 @@ if __name__ == "__main__":
         keywords = ["JP Morgan financial crime"]
         for keyword in keywords:
             latesttime_for_cnn_news= get_latest_time_for_cnn_news(keyword)
+            latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
             # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by, datetime(2025, 3, 12, 21, 19, 8))
-            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by,latesttime_for_cnn_news)
+            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by,latesttime_for_cnn_news[0][0])
             print(renewed_news_and_crimes)
             for news_and_crimes in renewed_news_and_crimes:
                 news_article, crimes = news_and_crimes
-                news_article, article_id = insert_cnn_news_into_table(args.keyword, news_article)
+                news_article, article_id = insert_cnn_news_into_table(keyword, news_article)
                 insert_chunk_table(news_article, article_id)
 
                 for crime in crimes:
