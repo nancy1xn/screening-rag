@@ -77,21 +77,13 @@ class SortingBy(str, Enum):
     NEWEST = "newest"
     RELEVANCY = "relevance"
 
+#get url from cnn website
 def get_cnn_news(
     keyword: str,
     sort_by: SortingBy,
     page
 ) -> t.Iterable[NewsArticle]:
-    """Retrieve NewsArticle Objects related to financial crime.
     
-    Yield each NewsArticle Object based on CNN's official website and that are related to financial crime one at a time, allowing iteration over each NewsArticle Object.
-    
-    Args:
-        keyword(str): The keyword used to search CNN news.
-        amount(int): The number of articles to be yielded.
-        sort_by(SortingBy): The search critera to sort media by "newest" or "relevance". If SortingBy.NEWEST: Sort media by the latest to the oldest.
-                            If SortingBy.RELEVANCY: Sort media by the most relevant to the least relevant. 
-    """
     size_per_page = 3
 
     web = requests.get(
@@ -114,11 +106,10 @@ def get_cnn_news(
         article = NewsPlease.from_url(url)
         yield article
 
-#cnn_news_and_crime_event_mode
+#filter cnn_news and crime_events
 def handle_news_and_crimes (
     article:NewsArticle, 
 )-> t.Iterable[NewsArticle]:
-    # print(article)
 
     model = ChatOpenAI(model="gpt-4o", temperature=0) 
     structured_model = model.with_structured_output(NewsSummary)
@@ -128,11 +119,14 @@ def handle_news_and_crimes (
             In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time(ONLY USE "news published date"((newsarticle.date_publish)), the event, 
             the crime type, the direct object of wrongdoing, and the laws or regulations action."""
 
-    news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])]+[HumanMessage(content=article.get_serializable_dict()['date_publish'])])
+    news_summary= structured_model.invoke([SystemMessage(content=system), 
+                                           HumanMessage(content=article.maintext), 
+                                           HumanMessage(content=str(article.date_publish))
+                                        ])
     news_summary: t.NewsSummary
     # print(news_summary.is_adverse_news)
-    if news_summary.is_adverse_news==True:
-        yield article, news_summary.crimes
+    if news_summary.is_adverse_news:
+        return news_summary.crimes
     else:
         return              
 
@@ -140,7 +134,17 @@ def cnn_news_and_crimes_pipeline(
     keyword: str,
     amount: int,
     sort_by: SortingBy,)-> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
+
+    """Retrieve NewsArticle Objects related to financial crime.
     
+    Yield each NewsArticle Object based on CNN's official website and that are related to financial crime one at a time, allowing iteration over each NewsArticle Object.
+    
+    Args:
+        keyword(str): The keyword used to search CNN news.
+        amount(int): The number of articles to be yielded.
+        sort_by(SortingBy): The search critera to sort media by "newest" or "relevance". If SortingBy.NEWEST: Sort media by the latest to the oldest.
+                            If SortingBy.RELEVANCY: Sort media by the most relevant to the least relevant. 
+    """
     count = 0
     page = 1
     news_article_collection = []
@@ -148,21 +152,27 @@ def cnn_news_and_crimes_pipeline(
     while count<amount:
         news_article = get_cnn_news(keyword, sort_by, page)
         for news in news_article:
-            if handle_news_and_crimes(news) is not None:
-                filtered_news_and_crimes = handle_news_and_crimes(news)
-                for filtered_news_and_crimes_item in filtered_news_and_crimes:
-                    filtered_news = filtered_news_and_crimes_item[0]
-                    filtered_crimes_list = filtered_news_and_crimes_item[1]
-
-                    if count>=amount:
-                        break
-
-                    news_article_collection.append((filtered_news,filtered_crimes_list))
-                    count = len(news_article_collection)
-                    print(count)
-
             if count>=amount:
-                break
+                return news_article_collection
+            # if handle_news_and_crimes(news) is not None:
+            if crimes:=handle_news_and_crimes(news):
+                news_article_collection.append((news, crimes))
+                count = len(news_article_collection)
+                print(count)
+                # filtered_news_and_crimes = handle_news_and_crimes(news)
+                # for filtered_news_and_crimes_item in filtered_news_and_crimes:
+                #     filtered_news = filtered_news_and_crimes_item[0]
+                #     filtered_crimes_list = filtered_news_and_crimes_item[1]
+
+                # if count>=amount:
+                #     break
+
+                    # news_article_collection.append((filtered_news,filtered_crimes_list))
+                    # count = len(news_article_collection)
+                    # print(count)
+
+            # if count>=amount:
+            #     break
         page+=1
     
     return news_article_collection
@@ -318,7 +328,9 @@ def get_latest_time_for_cnn_news(keyword: t.List[str]):
     db.close() 
     return latesttime_for_cnn_news
 
-def handle_and_renew_news_and_crimes(article:NewsArticle, latesttime): 
+def handle_and_renew_news_and_crimes(
+    article:NewsArticle,
+) -> t.List[Crime]: 
     model = ChatOpenAI(model="gpt-4o", temperature=0) 
     structured_model = model.with_structured_output(NewsSummary)
 
@@ -327,41 +339,36 @@ def handle_and_renew_news_and_crimes(article:NewsArticle, latesttime):
 
                 In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time (ONLY USE "news published date"((newsarticle.date_publish))）, the event, 
                 the crime type, the direct object of wrongdoing, and the laws or regulations action."""
-
-    # if article.date_publish > latesttime:
-    news_summary= structured_model.invoke([SystemMessage(content=system)]+[HumanMessage(content=article.get_serializable_dict()['maintext'])]+[HumanMessage(content=article.get_serializable_dict()['date_publish'])])
+    print(type(article.date_publish))
+    print(article.date_publish)
+    news_summary= structured_model.invoke([
+        SystemMessage(content=system),
+        HumanMessage(content=article.maintext),
+        HumanMessage(content=str(article.date_publish)),
+    ])
     news_summary: NewsSummary
     print(news_summary.is_adverse_news)
-    if news_summary.is_adverse_news==True:
+    if news_summary.is_adverse_news:
         print(news_summary.crimes)
-        yield article, news_summary.crimes, news_summary         
-    # elif article.date_publish <= latesttime:
-    #     return 
+        return news_summary.crimes
+    
 
 def renew_cnn_news_and_crimes_pipeline(
     keyword: str,
-    sort_by: SortingBy,
+    sorting_by,
     latesttime: datetime)-> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
     
     page = 1
     news_article_collection = []
 
     while True:
-        news_article = get_cnn_news(keyword, sort_by, page)
+        news_article = get_cnn_news(keyword, sorting_by, page)
         for news in news_article:
-            print(news)
-            print(news.date_publish)
-            print(latesttime)
-            if news.date_publish > latesttime:
-            # if handle_and_renew_news_and_crimes(news, latesttime) is not None:
-                filtered_news_and_crimes = handle_and_renew_news_and_crimes(news, latesttime)
-                for filtered_news_and_crimes_item in filtered_news_and_crimes:
-                    filtered_news = filtered_news_and_crimes_item[0]
-                    filtered_crimes_list = filtered_news_and_crimes_item[1]
-                    news_article_collection.append((filtered_news,filtered_crimes_list))
-            elif news.date_publish <= latesttime:
-            # if filtered_news.date_publish <= latesttime:
+            if news.date_publish <= latesttime:
                 return news_article_collection
+            if crimes := handle_and_renew_news_and_crimes(news):
+                news_article_collection.append((news, crimes))
+
         page+=1
 
 if __name__ == "__main__":
@@ -395,9 +402,9 @@ if __name__ == "__main__":
         for keyword in keywords:
             latesttime_for_cnn_news= get_latest_time_for_cnn_news(keyword)
             latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
-            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by, datetime(2025, 3, 12, 21, 19, 8))
-            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, args.sort_by,latesttime_for_cnn_news[0][0])
-            print(renewed_news_and_crimes)
+            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, SortingBy.NEWEST, datetime(2025, 3, 12, 00, 00, 0))
+            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, SortingBy.NEWEST, latesttime_for_cnn_news[0][0])
+            # print(renewed_news_and_crimes)
             for news_and_crimes in renewed_news_and_crimes:
                 news_article, crimes = news_and_crimes
                 news_article, article_id = insert_cnn_news_into_table(keyword, news_article)
