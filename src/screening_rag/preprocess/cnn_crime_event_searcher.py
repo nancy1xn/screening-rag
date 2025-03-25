@@ -1,15 +1,13 @@
-import typing as t
-from typing import List
-from langchain_openai import OpenAIEmbeddings
 import json
-from pydantic import BaseModel, Field
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
-from typing import List
-from qdrant_client import QdrantClient, models
 import re
+import typing as t
+from typing import List, Optional
+
 import MySQLdb
-from typing import Optional
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from pydantic import BaseModel, Field
+from qdrant_client import QdrantClient, models
 
 
 class SimilarSubjects(BaseModel):
@@ -19,17 +17,19 @@ class SimilarSubjects(BaseModel):
                     Perform partial keyword matching to find relevant alternatives.
                     (2)Instead of generating using ChatGPT, simply choose a list of alternative words from the provided/input set of subject names.
                     (3)The final set shall includes original input keyword.
-                    """)
+                    """
+    )
+
 
 class SubquestionRelatedChunks(BaseModel):
-    original_question:Optional[str]
-    crime_id:Optional[int]
-    time:Optional[str]
-    subjects:Optional[List[str]]
-    summary:Optional[str]
-    adverse_info_type:Optional[List[str]]
-    violated_laws:Optional[str]
-    enforcement_action:Optional[str]
+    original_question: Optional[str]
+    crime_id: Optional[int]
+    time: Optional[str]
+    subjects: Optional[List[str]]
+    summary: Optional[str]
+    adverse_info_type: Optional[List[str]]
+    violated_laws: Optional[str]
+    enforcement_action: Optional[str]
 
 
 class ChatReport(BaseModel):
@@ -53,76 +53,87 @@ class ChatReport(BaseModel):
 
                                     '202308 Google violated anti-money laundering laws, failing to implement effective measures, and violating US economic sanctions. SEC has fined Google €2.42 billion for breaching US economic sanctions.[id: 100]'
                                     ]
-                    """)
-
-def gen_report(
-    keyword:str    
-) ->t.Dict[str, List[str]]:
-    
-    embeddings = OpenAIEmbeddings(
-        model="text-embedding-3-large",
-        dimensions=3072
+                    """
     )
+
+
+def gen_report(keyword: str) -> t.Dict[str, List[str]]:
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
     client = QdrantClient(url="http://localhost:6333")
     subject = keyword
     original_question = [
         [
             f"q1_1 When was the company {subject} founded?",
             f"q1_2 Which country is the company {subject} headquartered in?",
-            f"q1_3 What is the stock ticker of Binance or its listing status? Please provide only relevant details.", #改問題因為stock ticker score原本不準確, stock ticker可能還是得手動查
+            "q1_3 What is the stock ticker of Binance or its listing status? Please provide only relevant details.",  # 改問題因為stock ticker score原本不準確, stock ticker可能還是得手動查
             f"q1_4 What type of business does the company {subject} provide?",
         ],
-        [ 
+        [
             f"""Has the company {subject} been accused of committing any financial crimes? 
                 If so, please provide the summary of financial crime the company {subject} accused of committing"""
-        ]
+        ],
     ]
 
-    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-    cur=db.cursor()
+    db = MySQLdb.connect(
+        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+    )
+    cur = db.cursor()
     cur.execute("SELECT DISTINCT subject FROM my_database.SUBJECT_CNN_NEWS")
     multiple_subjects_name_subset = cur.fetchall()
-    model = ChatOpenAI(model="gpt-4o", temperature=0) 
+    model = ChatOpenAI(model="gpt-4o", temperature=0)
     structured_model = model.with_structured_output(SimilarSubjects)
     system_prompt_subjectkeywords = """You are a helpful assistant to perform partial keyword matching to find relevant alternatives partially similar to the keyword input by the user. Remember that original input keyword shall be included """
-    
-    generated_subjects= structured_model.invoke([
-                    SystemMessage(content=system_prompt_subjectkeywords),
-                    HumanMessage(content=str(multiple_subjects_name_subset)),
-                    HumanMessage(content=keyword)])
+
+    generated_subjects = structured_model.invoke(
+        [
+            SystemMessage(content=system_prompt_subjectkeywords),
+            HumanMessage(content=str(multiple_subjects_name_subset)),
+            HumanMessage(content=keyword),
+        ]
+    )
     question_openai_vectors_group_2 = embeddings.embed_documents(original_question[1])
     question_openai_vectors_group_2: t.List[List[float]]
     search_results_group_2 = client.query_points(
-               collection_name="crime_cnn_news_vectors",
-               query=question_openai_vectors_group_2[0],
-               limit=2,
-               query_filter = models.Filter(
-                   must=[
-                    models.FieldCondition(
-                        key="subjects",
-                        match=models.MatchAny(
-                          any=generated_subjects.names,  
-                        ),
-                    )   
-                   ] 
-               )
+        collection_name="crime_cnn_news_vectors",
+        query=question_openai_vectors_group_2[0],
+        limit=2,
+        query_filter=models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="subjects",
+                    match=models.MatchAny(
+                        any=generated_subjects.names,
+                    ),
+                )
+            ]
+        ),
     )
     saved_chunks_group_2 = []
     for search_result_group_2 in search_results_group_2.points:
-        if search_result_group_2.score>=0.41: 
-            saved_chunks_group_2.append(SubquestionRelatedChunks(
-            original_question = original_question[1][0], 
-            crime_id = search_result_group_2.payload["id"], 
-            time = search_result_group_2.payload["time"], 
-            subjects = search_result_group_2.payload["subjects"], 
-            summary = search_result_group_2.payload["summary"], 
-            adverse_info_type = search_result_group_2.payload["adverse_info_type"], 
-            violated_laws = search_result_group_2.payload["violated_laws"], 
-            enforcement_action = search_result_group_2.payload["enforcement_action"]
-             ))
+        if search_result_group_2.score >= 0.41:
+            saved_chunks_group_2.append(
+                SubquestionRelatedChunks(
+                    original_question=original_question[1][0],
+                    crime_id=search_result_group_2.payload["id"],
+                    time=search_result_group_2.payload["time"],
+                    subjects=search_result_group_2.payload["subjects"],
+                    summary=search_result_group_2.payload["summary"],
+                    adverse_info_type=search_result_group_2.payload[
+                        "adverse_info_type"
+                    ],
+                    violated_laws=search_result_group_2.payload["violated_laws"],
+                    enforcement_action=search_result_group_2.payload[
+                        "enforcement_action"
+                    ],
+                )
+            )
 
-    sorted_time_saved_chunks_group_2 = sorted(saved_chunks_group_2, key=lambda x:x.time, reverse = True)
-    json_sorted_time_saved_chunks_group_2 = json.dumps([chunk.model_dump() for chunk in sorted_time_saved_chunks_group_2], indent=4)
+    sorted_time_saved_chunks_group_2 = sorted(
+        saved_chunks_group_2, key=lambda x: x.time, reverse=True
+    )
+    json_sorted_time_saved_chunks_group_2 = json.dumps(
+        [chunk.model_dump() for chunk in sorted_time_saved_chunks_group_2], indent=4
+    )
 
     structured_model = model.with_structured_output(ChatReport)
     system_ans = """You are a helpful assistant to generate the final answer in relation to the corresponding original question according 
@@ -130,34 +141,43 @@ def gen_report(
                     In addition, given a list of crime-related instances in json format, please help deduplicate the list of instances in json format (crime events) based on similar content, considering both the time and the event details.
                     YOU MUST RETAIN THE NECESSARY NEWS BASED ON INSTRUCTIONS.
                  """
-     
-    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-    cur=db.cursor()
 
-    aggregated_2nd_level= structured_model.invoke([
-        SystemMessage(content=system_ans),
-        HumanMessage(content=json_sorted_time_saved_chunks_group_2),
+    db = MySQLdb.connect(
+        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+    )
+    cur = db.cursor()
 
-    ])
-   
-    final_appendix_2 =[]
-    saved_final_answers =[]
+    aggregated_2nd_level = structured_model.invoke(
+        [
+            SystemMessage(content=system_ans),
+            HumanMessage(content=json_sorted_time_saved_chunks_group_2),
+        ]
+    )
 
-    match = re.findall(r'\[id: (\d+)\]', str(aggregated_2nd_level.result))
+    final_appendix_2 = []
+    saved_final_answers = []
+
+    match = re.findall(r"\[id: (\d+)\]", str(aggregated_2nd_level.result))
     if match:
-            for id in match:
-                query = "select ID, title, url from my_database.CRIME_CNN_NEWS where ID = %s"
-                cur.execute(query, (int(id),))
-                for row in cur.fetchall():
-                    final_appendix_2.append(row)
-    
-    sorted_appendix_2 = sorted(final_appendix_2, key =lambda x: x[0])
-    saved_final_answers.append({
-            "Adverse Information Report Headline":aggregated_2nd_level.result, 
-            "Appendix of Adverse Information Report Headline":sorted_appendix_2}) 
+        for id in match:
+            query = (
+                "select ID, title, url from my_database.CRIME_CNN_NEWS where ID = %s"
+            )
+            cur.execute(query, (int(id),))
+            for row in cur.fetchall():
+                final_appendix_2.append(row)
+
+    sorted_appendix_2 = sorted(final_appendix_2, key=lambda x: x[0])
+    saved_final_answers.append(
+        {
+            "Adverse Information Report Headline": aggregated_2nd_level.result,
+            "Appendix of Adverse Information Report Headline": sorted_appendix_2,
+        }
+    )
 
     print(saved_final_answers)
     return aggregated_2nd_level.result, sorted_appendix_2
- 
-if __name__ == "__main__":  
+
+
+if __name__ == "__main__":
     gen_report("JPMorgan")
