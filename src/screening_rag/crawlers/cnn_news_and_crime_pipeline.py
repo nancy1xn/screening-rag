@@ -1,17 +1,20 @@
-from enum import Enum
-import requests
 import typing as t
-from newsplease.NewsArticle import NewsArticle
-from newsplease import NewsPlease
-import MySQLdb
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
-from langchain_core.messages import SystemMessage, HumanMessage
-from screening_rag.preprocess.cnn_news_chunking import insert_chunk_table
-from qdrant_client import QdrantClient, models
-from screening_rag.preprocess.cnn_crime_event import Crime
-from screening_rag.preprocess import cnn_crime_event
 from datetime import datetime
+from enum import Enum
+
+import MySQLdb
+import requests
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+from newsplease import NewsPlease
+from newsplease.NewsArticle import NewsArticle
+from pydantic import BaseModel, Field
+from qdrant_client import QdrantClient, models
+
+from screening_rag.preprocess import cnn_crime_event
+from screening_rag.preprocess.cnn_crime_event import Crime
+from screening_rag.preprocess.cnn_news_chunking import insert_chunk_table
+
 
 class NewsSummary(BaseModel):
     """
@@ -19,16 +22,17 @@ class NewsSummary(BaseModel):
     2.List out and provide summary for all financial crimes in the news.
 
     -Define the guidelines for checking if the media contents is an adverse media related to financial crime.
-     The result will be 'True' if adverse media is found, and 'False' otherwise.    
+     The result will be 'True' if adverse media is found, and 'False' otherwise.
     -List out all financial crimes in the news to summarize the financial crime in terms of the time, the event, the crime type, the direct object of wrongdoing, and the laws or regulations action.
-            
+
     Attributes:
         is_adverse_news: A boolean indicating if the media content is an adverse media or not.
         crimes: list of 'Class Crime' indicating all financial crimes summary reported in the news.")
 
     """
+
     is_adverse_news: bool = Field(
-                    description="""Please determine if the news mentions the search object (input keyword) that is related to financial crime.
+        description="""Please determine if the news mentions the search object (input keyword) that is related to financial crime.
                     Please only return as format boolean (True/False) and determine whether the news related to financial crime accused of committing by the search object (input keyword) as per the below criteria:
 
                     (1) If the news is related to financial crime, please return boolean: True
@@ -59,59 +63,58 @@ class NewsSummary(BaseModel):
                     **Search Object**:
                     The search object refers to the keyword used to search for relevant news. In this case, it would be the term provided via a search request, for example:
                     `requests.get('https://search.prod.di.api.cnn.io/content', params={{'q': keyword}})`
-                    """ 
+                    """
     )
-    
+
     crimes: t.List[Crime] = Field(
-            description="Please list all financial crime events reported in the news and summarize them in response to the questions defined in the 'Class Crime' section.")
+        description="Please list all financial crime events reported in the news and summarize them in response to the questions defined in the 'Class Crime' section."
+    )
+
 
 class SortingBy(str, Enum):
     """Represent different sorting logics for media.
 
-    Use the enum to categorize sorting logics for media by "newest" or "relevance". 
+    Use the enum to categorize sorting logics for media by "newest" or "relevance".
 
     Attributes:
         NEWEST: The search criteria to sort media by the latest to the oldest.
-        RELEVANCY: The search criteria to sort media by the most relevant to the least relevant. 
+        RELEVANCY: The search criteria to sort media by the most relevant to the least relevant.
     """
+
     NEWEST = "newest"
     RELEVANCY = "relevance"
 
-#get url from cnn website
-def get_cnn_news(
-    keyword: str,
-    sort_by: SortingBy,
-    page
-) -> t.Iterable[NewsArticle]:
-    
+
+# get url from cnn website
+def get_cnn_news(keyword: str, sort_by: SortingBy, page) -> t.Iterable[NewsArticle]:
     size_per_page = 3
 
     web = requests.get(
-        'https://search.prod.di.api.cnn.io/content', 
+        "https://search.prod.di.api.cnn.io/content",
         params={
-            'q': keyword,
-            'size': size_per_page,
-            'sort': sort_by,
-            'from': (page-1)*3,
-            'page':page,
-            'request_id':'stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e',
-            'site':'cnn'
-        }
-    ) 
+            "q": keyword,
+            "size": size_per_page,
+            "sort": sort_by,
+            "from": (page - 1) * 3,
+            "page": page,
+            "request_id": "stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e",
+            "site": "cnn",
+        },
+    )
     news_collection = web.json().get("result")
-    for i , news in enumerate(news_collection):
+    for i, news in enumerate(news_collection):
         if news["type"] == "VideoObject":
             continue
-        url = news["path"]          
+        url = news["path"]
         article = NewsPlease.from_url(url)
         yield article
 
-#filter cnn_news and crime_events
-def handle_news_and_crimes (
-    article:NewsArticle, 
-)-> t.Iterable[NewsArticle]:
 
-    model = ChatOpenAI(model="gpt-4o", temperature=0) 
+# filter cnn_news and crime_events
+def handle_news_and_crimes(
+    article: NewsArticle,
+) -> t.Iterable[NewsArticle]:
+    model = ChatOpenAI(model="gpt-4o", temperature=0)
     structured_model = model.with_structured_output(NewsSummary)
     system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event, 
             please return boolean: True. If the news is not related to financial crime, please return boolean: False.
@@ -119,67 +122,57 @@ def handle_news_and_crimes (
             In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time(ONLY USE "news published date"((newsarticle.date_publish)), the event, 
             the crime type, the direct object of wrongdoing, and the laws or regulations action."""
 
-    news_summary= structured_model.invoke([SystemMessage(content=system), 
-                                           HumanMessage(content=article.maintext), 
-                                           HumanMessage(content=str(article.date_publish))
-                                        ])
+    news_summary = structured_model.invoke(
+        [
+            SystemMessage(content=system),
+            HumanMessage(content=article.maintext),
+            HumanMessage(content=str(article.date_publish)),
+        ]
+    )
     news_summary: t.NewsSummary
-    # print(news_summary.is_adverse_news)
     if news_summary.is_adverse_news:
         return news_summary.crimes
     else:
-        return              
+        return
+
 
 def cnn_news_and_crimes_pipeline(
     keyword: str,
     amount: int,
-    sort_by: SortingBy,)-> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
-
+    sort_by: SortingBy,
+) -> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
     """Retrieve NewsArticle Objects related to financial crime.
-    
+
     Yield each NewsArticle Object based on CNN's official website and that are related to financial crime one at a time, allowing iteration over each NewsArticle Object.
-    
+
     Args:
         keyword(str): The keyword used to search CNN news.
         amount(int): The number of articles to be yielded.
         sort_by(SortingBy): The search critera to sort media by "newest" or "relevance". If SortingBy.NEWEST: Sort media by the latest to the oldest.
-                            If SortingBy.RELEVANCY: Sort media by the most relevant to the least relevant. 
+                            If SortingBy.RELEVANCY: Sort media by the most relevant to the least relevant.
     """
     count = 0
     page = 1
     news_article_collection = []
 
-    while count<amount:
+    while count < amount:
         news_article = get_cnn_news(keyword, sort_by, page)
         for news in news_article:
-            if count>=amount:
+            if count >= amount:
                 return news_article_collection
-            # if handle_news_and_crimes(news) is not None:
-            if crimes:=handle_news_and_crimes(news):
+            if crimes := handle_news_and_crimes(news):
                 news_article_collection.append((news, crimes))
                 count = len(news_article_collection)
-                print(count)
-                # filtered_news_and_crimes = handle_news_and_crimes(news)
-                # for filtered_news_and_crimes_item in filtered_news_and_crimes:
-                #     filtered_news = filtered_news_and_crimes_item[0]
-                #     filtered_crimes_list = filtered_news_and_crimes_item[1]
+        page += 1
 
-                # if count>=amount:
-                #     break
-
-                    # news_article_collection.append((filtered_news,filtered_crimes_list))
-                    # count = len(news_article_collection)
-                    # print(count)
-
-            # if count>=amount:
-            #     break
-        page+=1
-    
     return news_article_collection
 
+
 def reset_and_create_cnn_news_data_storage():
-    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-    cur=db.cursor()
+    db = MySQLdb.connect(
+        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+    )
+    cur = db.cursor()
 
     cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
     cur.execute("DROP TABLE CNN_NEWS;")
@@ -191,8 +184,8 @@ def reset_and_create_cnn_news_data_storage():
                 maintext MEDIUMTEXT, 
                 date_publish DATETIME, 
                 url VARCHAR(300), 
-                PRIMARY KEY(ID));""") 
-    
+                PRIMARY KEY(ID));""")
+
     cur.execute("""CREATE TABLE CHUNK_CNN_NEWS (
         ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         text VARCHAR(1000),
@@ -210,23 +203,27 @@ def reset_and_create_cnn_news_data_storage():
         vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
     )
 
-def insert_cnn_news_into_table(keyword:str, news_article: NewsArticle):
-    
-    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-    cur=db.cursor()
+
+def insert_cnn_news_into_table(keyword: str, news_article: NewsArticle):
+    db = MySQLdb.connect(
+        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+    )
+    cur = db.cursor()
     cur.execute(
-            """INSERT INTO my_database.CNN_NEWS (title, keyword, description, maintext, date_publish, url)
+        """INSERT INTO my_database.CNN_NEWS (title, keyword, description, maintext, date_publish, url)
             VALUES (%s, %s, %s, %s, %s, %s)""",
-            (news_article.title,
-            keyword, 
-            news_article.description, 
-            news_article.maintext, 
+        (
+            news_article.title,
+            keyword,
+            news_article.description,
+            news_article.maintext,
             news_article.date_publish,
-            news_article.url)
-            )
+            news_article.url,
+        ),
+    )
     article_id = cur.lastrowid
     db.commit()
-    
+
     cur.execute("select * from my_database.CNN_NEWS where ID =%s", (article_id,))
     for row in cur.fetchall():
         print(row)
@@ -235,9 +232,12 @@ def insert_cnn_news_into_table(keyword:str, news_article: NewsArticle):
 
     return news_article, article_id
 
+
 def reset_and_create_crimes_data_storage():
-    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-    cur=db.cursor()
+    db = MySQLdb.connect(
+        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+    )
+    cur = db.cursor()
 
     cur.execute("DROP TABLE SUBJECT_CNN_NEWS;")
     cur.execute("DROP TABLE CRIME_CNN_NEWS ;")
@@ -255,7 +255,7 @@ def reset_and_create_crimes_data_storage():
                  url VARCHAR(1000), 
                  PRIMARY KEY(ID)
                  );
-    """) 
+    """)
 
     cur.execute("""CREATE TABLE SUBJECT_CNN_NEWS (
                 ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
@@ -266,7 +266,7 @@ def reset_and_create_crimes_data_storage():
                 );
     """)
     cur.close()
-    db.close() 
+    db.close()
 
     client = QdrantClient(url="http://localhost:6333")
     client.create_collection(
@@ -274,26 +274,31 @@ def reset_and_create_crimes_data_storage():
         vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
     )
 
-def insert_crime_into_table(keyword:str, news_article: NewsArticle, crime:Crime):
-    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-    cur=db.cursor()
+
+def insert_crime_into_table(keyword: str, news_article: NewsArticle, crime: Crime):
+    db = MySQLdb.connect(
+        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+    )
+    cur = db.cursor()
     crime_adverse_info_type = ",".join(crime.adverse_info_type)
     cur.execute(
         """
         INSERT INTO my_database.CRIME_CNN_NEWS (title, keyword, date_publish, time, summary, adverse_info_type, violated_laws, enforcement_action, url)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
-        (news_article.title,
-        keyword,
-        news_article.date_publish,
-        crime.time,
-        crime.summary,
-        crime_adverse_info_type,
-        crime.violated_laws,
-        crime.enforcement_action,
-        news_article.url),
+        (
+            news_article.title,
+            keyword,
+            news_article.date_publish,
+            crime.time,
+            crime.summary,
+            crime_adverse_info_type,
+            crime.violated_laws,
+            crime.enforcement_action,
+            news_article.url,
+        ),
     )
-    crime.id = cur.lastrowid 
+    crime.id = cur.lastrowid
 
     for subject in crime.subjects:
         cur.execute(
@@ -304,34 +309,39 @@ def insert_crime_into_table(keyword:str, news_article: NewsArticle, crime:Crime)
 
     cur.execute("select * from my_database.CRIME_CNN_NEWS where ID =%s", (crime.id,))
     for row in cur.fetchall():
-          print(row)
+        print(row)
     cur.execute("select * from my_database.SUBJECT_CNN_NEWS")
     for row in cur.fetchall():
-         print(row) 
+        print(row)
     cur.close()
-    db.close() 
+    db.close()
+
 
 def get_latest_time_for_cnn_news(keyword: t.List[str]):
-    db=MySQLdb.connect(host="127.0.0.1", user = "root", password="my-secret-pw",database="my_database")
-    cur=db.cursor()
-    cur.execute("""SELECT date_publish 
+    db = MySQLdb.connect(
+        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+    )
+    cur = db.cursor()
+    cur.execute(
+        """SELECT date_publish 
         FROM my_database.CNN_NEWS 
         WHERE keyword = %s 
         ORDER BY date_publish 
-        DESC LIMIT 1""", 
-        (keyword,))
+        DESC LIMIT 1""",
+        (keyword,),
+    )
     db.commit()
     latesttime_for_cnn_news = cur.fetchall()
-    print(latesttime_for_cnn_news)
-    
+
     cur.close()
-    db.close() 
+    db.close()
     return latesttime_for_cnn_news
 
+
 def handle_and_renew_news_and_crimes(
-    article:NewsArticle,
-) -> t.List[Crime]: 
-    model = ChatOpenAI(model="gpt-4o", temperature=0) 
+    article: NewsArticle,
+) -> t.List[Crime]:
+    model = ChatOpenAI(model="gpt-4o", temperature=0)
     structured_model = model.with_structured_output(NewsSummary)
 
     system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event, 
@@ -339,25 +349,22 @@ def handle_and_renew_news_and_crimes(
 
                 In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time (ONLY USE "news published date"((newsarticle.date_publish))）, the event, 
                 the crime type, the direct object of wrongdoing, and the laws or regulations action."""
-    print(type(article.date_publish))
-    print(article.date_publish)
-    news_summary= structured_model.invoke([
-        SystemMessage(content=system),
-        HumanMessage(content=article.maintext),
-        HumanMessage(content=str(article.date_publish)),
-    ])
+
+    news_summary = structured_model.invoke(
+        [
+            SystemMessage(content=system),
+            HumanMessage(content=article.maintext),
+            HumanMessage(content=str(article.date_publish)),
+        ]
+    )
     news_summary: NewsSummary
-    print(news_summary.is_adverse_news)
     if news_summary.is_adverse_news:
-        print(news_summary.crimes)
         return news_summary.crimes
-    
+
 
 def renew_cnn_news_and_crimes_pipeline(
-    keyword: str,
-    sorting_by,
-    latesttime: datetime)-> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
-    
+    keyword: str, sorting_by, latesttime: datetime
+) -> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
     page = 1
     news_article_collection = []
 
@@ -369,45 +376,64 @@ def renew_cnn_news_and_crimes_pipeline(
             if crimes := handle_and_renew_news_and_crimes(news):
                 news_article_collection.append((news, crimes))
 
-        page+=1
+        page += 1
+
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
+
     parser = ArgumentParser()
-    parser.add_argument("--mode", choices=["mode_initialize", "mode_renew"], required=True, help="choose mode_initialize or mode_renew")
+    parser.add_argument(
+        "--mode",
+        choices=["mode_initialize", "mode_renew"],
+        required=True,
+        help="choose mode_initialize or mode_renew",
+    )
     parser.add_argument("--keyword", help="The keyword to search on CNN", type=str)
     parser.add_argument("--amount", help="The amount of the crawled articles", type=int)
-    parser.add_argument("-s", "--sort-by", help="The factor of news ranking", default=SortingBy.RELEVANCY)
+    parser.add_argument(
+        "-s",
+        "--sort-by",
+        help="The factor of news ranking",
+        default=SortingBy.RELEVANCY,
+    )
     args = parser.parse_args()
 
     if args.mode == "mode_initialize":
         keywords = ["JP Morgan financial crime"]
         for keyword in keywords:
-            downloaded_news_and_crimes = cnn_news_and_crimes_pipeline(keyword, args.amount, args.sort_by)
+            downloaded_news_and_crimes = cnn_news_and_crimes_pipeline(
+                keyword, args.amount, args.sort_by
+            )
 
             reset_and_create_cnn_news_data_storage()
             reset_and_create_crimes_data_storage()
 
             for news_and_crimes in downloaded_news_and_crimes:
                 news_article, crimes = news_and_crimes
-                news_article, article_id = insert_cnn_news_into_table(keyword, news_article)
+                news_article, article_id = insert_cnn_news_into_table(
+                    keyword, news_article
+                )
                 insert_chunk_table(news_article, article_id)
 
                 for crime in crimes:
                     insert_crime_into_table(args.keyword, news_article, crime)
                     cnn_crime_event.insert_to_qdrant(crime)
 
-    if args.mode == "mode_renew": 
+    if args.mode == "mode_renew":
         keywords = ["JP Morgan financial crime"]
         for keyword in keywords:
-            latesttime_for_cnn_news= get_latest_time_for_cnn_news(keyword)
+            latesttime_for_cnn_news = get_latest_time_for_cnn_news(keyword)
             latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
-            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, SortingBy.NEWEST, datetime(2025, 3, 12, 00, 00, 0))
-            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, SortingBy.NEWEST, latesttime_for_cnn_news[0][0])
-            # print(renewed_news_and_crimes)
+            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, SortingBy.NEWEST, datetime(2025, 3, 12, 00, 00, 0))
+            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(
+                keyword, SortingBy.NEWEST, latesttime_for_cnn_news[0][0]
+            )
             for news_and_crimes in renewed_news_and_crimes:
                 news_article, crimes = news_and_crimes
-                news_article, article_id = insert_cnn_news_into_table(keyword, news_article)
+                news_article, article_id = insert_cnn_news_into_table(
+                    keyword, news_article
+                )
                 insert_chunk_table(news_article, article_id)
 
                 for crime in crimes:
@@ -415,12 +441,10 @@ if __name__ == "__main__":
                     cnn_crime_event.insert_to_qdrant(crime)
 
 
+# news collection
+# CURL -L -X GET 'http://localhost:6333/collections/cnn_news_chunk_vectors/points/1'
+# CURL -X DELETE "http://localhost:6333/collections/cnn_news_chunk_vectors"
 
-
-#news collection
-    #CURL -L -X GET 'http://localhost:6333/collections/cnn_news_chunk_vectors/points/1'
-    #CURL -X DELETE "http://localhost:6333/collections/cnn_news_chunk_vectors"
-
-#crime collection
-    #CURL -L -X GET 'http://localhost:6333/collections/crime_cnn_news_vectors/points/1'
-    #CURL -X DELETE "http://localhost:6333/collections/crime_cnn_news_vectors"
+# crime collection
+# CURL -L -X GET 'http://localhost:6333/collections/crime_cnn_news_vectors/points/1'
+# CURL -X DELETE "http://localhost:6333/collections/crime_cnn_news_vectors"
