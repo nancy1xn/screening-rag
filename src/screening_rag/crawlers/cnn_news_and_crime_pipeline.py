@@ -156,13 +156,13 @@ def cnn_news_and_crimes_pipeline(
     news_article_collection = []
 
     while count < amount:
-        news_article = get_cnn_news(keyword, sort_by, page)
-        for news in news_article:
+        news_articles = get_cnn_news(keyword, sort_by, page)
+        for news in news_articles:
             if count >= amount:
                 return news_article_collection
             if crimes := handle_news_and_crimes(news):
                 news_article_collection.append((news, crimes))
-                count = len(news_article_collection)
+                count += 1
         page += 1
 
     return news_article_collection
@@ -332,10 +332,10 @@ def get_latest_time_for_cnn_news(keyword: t.List[str]):
     )
     db.commit()
     latesttime_for_cnn_news = cur.fetchall()
-
+    print(latesttime_for_cnn_news[0][0])
     cur.close()
     db.close()
-    return latesttime_for_cnn_news
+    return latesttime_for_cnn_news[0][0]
 
 
 def handle_and_renew_news_and_crimes(
@@ -363,14 +363,16 @@ def handle_and_renew_news_and_crimes(
 
 
 def renew_cnn_news_and_crimes_pipeline(
-    keyword: str, sorting_by, latesttime: datetime
+    keyword: str,
+    sorting_by,
+    latesttime: datetime,
 ) -> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
     page = 1
     news_article_collection = []
 
     while True:
-        news_article = get_cnn_news(keyword, sorting_by, page)
-        for news in news_article:
+        news_articles = get_cnn_news(keyword, sorting_by, page)
+        for news in news_articles:
             if news.date_publish <= latesttime:
                 return news_article_collection
             if crimes := handle_and_renew_news_and_crimes(news):
@@ -425,9 +427,11 @@ if __name__ == "__main__":
         for keyword in keywords:
             latesttime_for_cnn_news = get_latest_time_for_cnn_news(keyword)
             latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
-            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(keyword, SortingBy.NEWEST, datetime(2025, 3, 12, 00, 00, 0))
+            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(
+            #     keyword, SortingBy.NEWEST, datetime(2025, 3, 12, 00, 00, 0)
+            # )
             renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(
-                keyword, SortingBy.NEWEST, latesttime_for_cnn_news[0][0]
+                keyword, SortingBy.NEWEST, latesttime_for_cnn_news
             )
             for news_and_crimes in renewed_news_and_crimes:
                 news_article, crimes = news_and_crimes
