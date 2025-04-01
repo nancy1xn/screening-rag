@@ -48,17 +48,17 @@ class NewsSummary(BaseModel):
                     5. Accounting irregularities
                     6. Tax evasion and other tax crimes (related to direct and indirect taxes)
                     7. Regulatory enforcement actions against entities in the regulated sector with links to the client
-                    8. Major sanctions breaches (including dealings with or othr involvement with Sanction countries or Territories or Countries Subject to Extensive Sanction Regimes)
+                    8. Major sanctions breaches (including transactions with or any other involvement with sanctioned countries, territories, or countries under comprehensive sanction regimes)
                     9. Terrorism (including terrorist financing)
-                    10. Illicit trafficking in narcotic drugs and psychotropic substances, arms trafficking or stolen goods
-                    11. Smuggling(including in relation to customs and excise duties and taxes)
-                    12. Human trafficking or migrant smuggling
+                    10. Illegal trade in narcotic drugs and psychotropic substances, weapons trafficking, or dealing in stolen goods.
+                    11. Smuggling (including matters related to customs duties, excise taxes, and other applicable taxes)
+                    12. Human trafficking or smuggling of migrants
                     13. Sexual exploitation of child labor
                     14. Extortion, counterfeiting, forgery, piracy of products
                     15. Organized crime or racketeering
-                    16. Benefiting from serious offences (e.g., kidnapping, illegal restraint, hostage-taking, robbery, theft, murder, or causing frievous bodily injury)
-                    17. Benefiting from environmental crimes
-                    18. Benefiting from other unethical or criminal behavior
+                    16. Profiting from serious crimes (e.g., kidnapping, unlawful confinement, hostage-taking, robbery, theft, murder, or inflicting serious bodily harm).
+                    17. Profiting from environmental crimes
+                    18. Profiting from other unethical or criminal behavior
 
                     **Search Object**:
                     The search object refers to the keyword used to search for relevant news. In this case, it would be the term provided via a search request, for example:
@@ -113,7 +113,7 @@ def get_cnn_news(keyword: str, sort_by: SortingBy, page) -> t.Iterable[NewsArtic
 # filter cnn_news and crime_events
 def handle_news_and_crimes(
     article: NewsArticle,
-) -> t.Iterable[NewsArticle]:
+) -> t.List[Crime]:
     model = ChatOpenAI(model="gpt-4o", temperature=0)
     structured_model = model.with_structured_output(NewsSummary)
     system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event, 
@@ -338,28 +338,28 @@ def get_latest_time_for_cnn_news(keyword: t.List[str]):
     return latesttime_for_cnn_news[0][0]
 
 
-def handle_and_renew_news_and_crimes(
-    article: NewsArticle,
-) -> t.List[Crime]:
-    model = ChatOpenAI(model="gpt-4o", temperature=0)
-    structured_model = model.with_structured_output(NewsSummary)
+# def handle_and_renew_news_and_crimes(
+#     article: NewsArticle,
+# ) -> t.List[Crime]:
+#     model = ChatOpenAI(model="gpt-4o", temperature=0)
+#     structured_model = model.with_structured_output(NewsSummary)
 
-    system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event, 
-                please return boolean: True. If the news is not related to financial crime, please return boolean: False.
+#     system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event,
+#                 please return boolean: True. If the news is not related to financial crime, please return boolean: False.
 
-                In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time (ONLY USE "news published date"((newsarticle.date_publish))）, the event, 
-                the crime type, the direct object of wrongdoing, and the laws or regulations action."""
+#                 In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time (ONLY USE "news published date"((newsarticle.date_publish))）, the event,
+#                 the crime type, the direct object of wrongdoing, and the laws or regulations action."""
 
-    news_summary = structured_model.invoke(
-        [
-            SystemMessage(content=system),
-            HumanMessage(content=article.maintext),
-            HumanMessage(content=str(article.date_publish)),
-        ]
-    )
-    news_summary: NewsSummary
-    if news_summary.is_adverse_news:
-        return news_summary.crimes
+#     news_summary = structured_model.invoke(
+#         [
+#             SystemMessage(content=system),
+#             HumanMessage(content=article.maintext),
+#             HumanMessage(content=str(article.date_publish)),
+#         ]
+#     )
+#     news_summary: NewsSummary
+#     if news_summary.is_adverse_news:
+#         return news_summary.crimes
 
 
 def renew_cnn_news_and_crimes_pipeline(
@@ -375,7 +375,7 @@ def renew_cnn_news_and_crimes_pipeline(
         for news in news_articles:
             if news.date_publish <= latesttime:
                 return news_article_collection
-            if crimes := handle_and_renew_news_and_crimes(news):
+            if crimes := handle_news_and_crimes(news):
                 news_article_collection.append((news, crimes))
 
         page += 1
