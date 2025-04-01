@@ -75,4 +75,5 @@ def gen_adverse_media_report(entity_name):
         )
 
 
-gen_adverse_media_report(entity_name)
+if __name__ == "__main__":
+    gen_adverse_media_report(entity_name)
