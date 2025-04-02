@@ -1,3 +1,4 @@
+import os
 import re
 import typing as t
 from typing import List
@@ -43,7 +44,8 @@ class Relevance(BaseModel):
 
 def gen_report1(keyword: str) -> t.Dict[str, List[str]]:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-    client = QdrantClient(url="http://localhost:6333")
+    Qdrant_domain = os.getenv("QDRANT_DOMAIN")
+    client = QdrantClient(url=Qdrant_domain)
     subject = keyword
 
     original_question = [
@@ -138,8 +140,9 @@ def gen_report1(keyword: str) -> t.Dict[str, List[str]]:
 
     saved_answers = []
 
+    MySQLdb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
     )
     cur = db.cursor()
 
