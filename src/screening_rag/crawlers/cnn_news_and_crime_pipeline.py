@@ -136,7 +136,7 @@ def get_crimes_from_summarized_news(
         return
 
 
-def cnn_news_and_crimes_pipeline(
+def fetch_top_k_cnn_news_crimes(
     keyword: str,
     amount: int,
     sort_by: SortingBy,
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     if args.mode == "mode_initialize":
         keywords = ["JP Morgan financial crime"]
         for keyword in keywords:
-            downloaded_news_and_crimes = cnn_news_and_crimes_pipeline(
+            downloaded_news_and_crimes = fetch_top_k_cnn_news_crimes(
                 keyword, args.amount, args.sort_by
             )
 
