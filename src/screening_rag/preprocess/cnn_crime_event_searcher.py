@@ -79,14 +79,14 @@ def gen_report(keyword: str) -> t.Dict[str, List[str]]:
     )
     cur = db.cursor()
     cur.execute("SELECT DISTINCT subject FROM my_database.SUBJECT_CNN_NEWS")
-    multiple_subjects_name_subset = cur.fetchall()
+    existing_subjects = cur.fetchall()
     model = ChatOpenAI(model="gpt-4o", temperature=0)
     system_prompt_subjectkeywords = """You are a helpful assistant to perform partial keyword matching to find relevant alternatives partially similar to the keyword input by the user. Remember that original input keyword shall be included """
 
     generated_subjects = model.with_structured_output(SimilarSubjects).invoke(
         [
             SystemMessage(content=system_prompt_subjectkeywords),
-            HumanMessage(content=str(multiple_subjects_name_subset)),
+            HumanMessage(content=str(existing_subjects)),
             HumanMessage(content=keyword),
         ]
     )
