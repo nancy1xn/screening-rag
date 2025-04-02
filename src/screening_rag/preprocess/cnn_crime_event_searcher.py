@@ -81,10 +81,9 @@ def gen_report(keyword: str) -> t.Dict[str, List[str]]:
     cur.execute("SELECT DISTINCT subject FROM my_database.SUBJECT_CNN_NEWS")
     multiple_subjects_name_subset = cur.fetchall()
     model = ChatOpenAI(model="gpt-4o", temperature=0)
-    structured_model = model.with_structured_output(SimilarSubjects)
     system_prompt_subjectkeywords = """You are a helpful assistant to perform partial keyword matching to find relevant alternatives partially similar to the keyword input by the user. Remember that original input keyword shall be included """
 
-    generated_subjects = structured_model.invoke(
+    generated_subjects = model.with_structured_output(SimilarSubjects).invoke(
         [
             SystemMessage(content=system_prompt_subjectkeywords),
             HumanMessage(content=str(multiple_subjects_name_subset)),
@@ -109,22 +108,18 @@ def gen_report(keyword: str) -> t.Dict[str, List[str]]:
         ),
     )
     saved_chunks_group_2 = []
-    for search_result_group_2 in search_results_group_2.points:
-        if search_result_group_2.score >= 0.41:
+    for crime in search_results_group_2.points:
+        if crime.score >= 0.41:
             saved_chunks_group_2.append(
                 SubquestionRelatedChunks(
                     original_question=original_question[1][0],
-                    crime_id=search_result_group_2.payload["id"],
-                    time=search_result_group_2.payload["time"],
-                    subjects=search_result_group_2.payload["subjects"],
-                    summary=search_result_group_2.payload["summary"],
-                    adverse_info_type=search_result_group_2.payload[
-                        "adverse_info_type"
-                    ],
-                    violated_laws=search_result_group_2.payload["violated_laws"],
-                    enforcement_action=search_result_group_2.payload[
-                        "enforcement_action"
-                    ],
+                    crime_id=crime.payload["id"],
+                    time=crime.payload["time"],
+                    subjects=crime.payload["subjects"],
+                    summary=crime.payload["summary"],
+                    adverse_info_type=crime.payload["adverse_info_type"],
+                    violated_laws=crime.payload["violated_laws"],
+                    enforcement_action=crime.payload["enforcement_action"],
                 )
             )
 
