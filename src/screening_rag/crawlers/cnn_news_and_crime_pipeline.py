@@ -111,7 +111,7 @@ def get_cnn_news(keyword: str, sort_by: SortingBy, page) -> t.Iterable[NewsArtic
 
 
 # filter cnn_news and crime_events
-def handle_news_and_crimes(
+def get_crimes_from_summarized_news(
     article: NewsArticle,
 ) -> t.List[Crime]:
     model = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -160,7 +160,7 @@ def cnn_news_and_crimes_pipeline(
         for news in news_articles:
             if count >= amount:
                 return news_article_collection
-            if crimes := handle_news_and_crimes(news):
+            if crimes := get_crimes_from_summarized_news(news):
                 news_article_collection.append((news, crimes))
                 count += 1
         page += 1
@@ -375,7 +375,7 @@ def renew_cnn_news_and_crimes_pipeline(
         for news in news_articles:
             if news.date_publish <= latesttime:
                 return news_article_collection
-            if crimes := handle_news_and_crimes(news):
+            if crimes := get_crimes_from_summarized_news(news):
                 news_article_collection.append((news, crimes))
 
         page += 1
