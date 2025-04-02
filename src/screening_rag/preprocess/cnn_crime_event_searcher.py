@@ -65,7 +65,7 @@ def gen_report(keyword: str) -> t.Dict[str, List[str]]:
         [
             f"q1_1 When was the company {subject} founded?",
             f"q1_2 Which country is the company {subject} headquartered in?",
-            "q1_3 What is the stock ticker of Binance or its listing status? Please provide only relevant details.",  # 改問題因為stock ticker score原本不準確, stock ticker可能還是得手動查
+            "q1_3 What is the stock ticker of {subject} or its listing status? Please provide only relevant details.",  # 改問題因為stock ticker score原本不準確, stock ticker可能還是得手動查
             f"q1_4 What type of business does the company {subject} provide?",
         ],
         [
