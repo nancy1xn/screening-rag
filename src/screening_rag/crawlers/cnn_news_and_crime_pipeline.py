@@ -1,3 +1,4 @@
+import os
 import typing as t
 from datetime import datetime
 from enum import Enum
@@ -168,8 +169,9 @@ def fetch_top_k_cnn_news_crimes(
 
 
 def reset_and_create_cnn_news_data_storage():
+    MySQLdb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
     )
     cur = db.cursor()
 
@@ -206,8 +208,9 @@ def reset_and_create_cnn_news_data_storage():
 
 
 def insert_cnn_news_into_table(keyword: str, news_article: NewsArticle):
+    MySQLdb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
     )
     cur = db.cursor()
     cur.execute(
@@ -235,8 +238,9 @@ def insert_cnn_news_into_table(keyword: str, news_article: NewsArticle):
 
 
 def reset_and_create_crimes_data_storage():
+    MySQLdb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
     )
     cur = db.cursor()
 
@@ -278,8 +282,9 @@ def reset_and_create_crimes_data_storage():
 
 
 def insert_crime_into_table(keyword: str, news_article: NewsArticle, crime: Crime):
+    MySQLdb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
     )
     cur = db.cursor()
     crime_adverse_info_type = ",".join(crime.adverse_info_type)
@@ -336,8 +341,9 @@ def initialize_system(keywords: t.List[str], amount: int, sort_by: SortingBy):
 
 
 def get_latest_time_for_cnn_news(keyword: t.List[str]):
+    MySQLdb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password="my-secret-pw", database="my_database"
+        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
     )
     cur = db.cursor()
     cur.execute(
