@@ -1,3 +1,4 @@
+import os
 import typing as t
 from enum import Enum
 
@@ -42,8 +43,8 @@ class Crime(BaseModel):
 
 def insert_to_qdrant(crime: Crime):
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-
-    client = QdrantClient(url="http://localhost:6333")
+    Qdrant_domain = os.getenv("QDRANT_DOMAIN")
+    client = QdrantClient(url=Qdrant_domain)
     crime_openai_vectors = embeddings.embed_documents([str(crime.summary)])
     crime_openai_vectors: t.List[t.List[float]]
     crime_openai_vector = crime_openai_vectors[0]
