@@ -362,7 +362,7 @@ def get_latest_time_for_cnn_news(keyword: t.List[str]):
 #         return news_summary.crimes
 
 
-def renew_cnn_news_and_crimes_pipeline(
+def fetch_latest_cnn_news_crimes(
     keyword: str,
     sorting_by,
     latesttime: datetime,
@@ -427,10 +427,10 @@ if __name__ == "__main__":
         for keyword in keywords:
             latesttime_for_cnn_news = get_latest_time_for_cnn_news(keyword)
             latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
-            # renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(
+            # renewed_news_and_crimes = fetch_latest_cnn_news_crimes(
             #     keyword, SortingBy.NEWEST, datetime(2025, 3, 12, 00, 00, 0)
             # )
-            renewed_news_and_crimes = renew_cnn_news_and_crimes_pipeline(
+            renewed_news_and_crimes = fetch_latest_cnn_news_crimes(
                 keyword, SortingBy.NEWEST, latesttime_for_cnn_news
             )
             for news_and_crimes in renewed_news_and_crimes:
