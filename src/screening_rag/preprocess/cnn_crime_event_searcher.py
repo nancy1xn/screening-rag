@@ -58,11 +58,10 @@ class ChatReport(BaseModel):
     )
 
 
-def gen_report(keyword: str) -> t.Dict[str, List[str]]:
+def gen_report(subject: str) -> t.Dict[str, List[str]]:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
     Qdrant_domain = os.getenv("QDRANT_DOMAIN")
     client = QdrantClient(url=Qdrant_domain)
-    subject = keyword
     original_question = [
         [
             f"q1_1 When was the company {subject} founded?",
@@ -89,7 +88,7 @@ def gen_report(keyword: str) -> t.Dict[str, List[str]]:
         [
             SystemMessage(content=system_prompt_subjectkeywords),
             HumanMessage(content=str(existing_subjects)),
-            HumanMessage(content=keyword),
+            HumanMessage(content=subject),
         ]
     )
     question_openai_vectors_group_2 = embeddings.embed_documents(original_question[1])
