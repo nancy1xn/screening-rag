@@ -171,6 +171,7 @@ def gen_report1(keyword: str) -> t.Dict[str, List[str]]:
             for article_id in match:
                 query = "select ID, title, url from my_database.CNN_NEWS where ID = %s"
                 cur.execute(query, (int(article_id),))
+                # final_appendix_1.append(cur.fetchall())
                 final_appendix_1.append(mit.one(cur.fetchall()))
     set_appendix_1 = set(final_appendix_1)
     sorted_appendix_1 = sorted(set_appendix_1, key=lambda x: x[0])
