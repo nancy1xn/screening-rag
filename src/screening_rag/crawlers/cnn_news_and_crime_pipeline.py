@@ -106,8 +106,7 @@ def get_cnn_news(keyword: str, sort_by: SortingBy, page) -> t.Iterable[NewsArtic
         if news["type"] == "VideoObject":
             continue
         url = news["path"]
-        article = NewsPlease.from_url(url)
-        yield article
+        yield NewsPlease.from_url(url)
 
 
 # filter cnn_news and crime_events
@@ -176,6 +175,7 @@ def reset_and_create_cnn_news_data_storage():
 
     cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
     cur.execute("DROP TABLE CNN_NEWS;")
+
     cur.execute("""CREATE TABLE CNN_NEWS (
                 ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
                 title VARCHAR(300), 
@@ -198,6 +198,7 @@ def reset_and_create_cnn_news_data_storage():
     db.close()
 
     client = QdrantClient(url="http://localhost:6333")
+    client.delete_collection(collection_name="cnn_news_chunk_vectors")
     client.create_collection(
         collection_name="cnn_news_chunk_vectors",
         vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
@@ -269,6 +270,7 @@ def reset_and_create_crimes_data_storage():
     db.close()
 
     client = QdrantClient(url="http://localhost:6333")
+    client.delete_collection(collection_name="crime_cnn_news_vectors")
     client.create_collection(
         collection_name="crime_cnn_news_vectors",
         vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
@@ -315,6 +317,22 @@ def insert_crime_into_table(keyword: str, news_article: NewsArticle, crime: Crim
         print(row)
     cur.close()
     db.close()
+
+
+def initialize_system(keywords: t.List[str], amount: int, sort_by: SortingBy):
+    reset_and_create_cnn_news_data_storage()
+    reset_and_create_crimes_data_storage()
+
+    for keyword in keywords:
+        for news_article, crimes in fetch_top_k_cnn_news_crimes(
+            keyword, amount, sort_by
+        ):
+            news_article, article_id = insert_cnn_news_into_table(keyword, news_article)
+            insert_chunk_table(news_article, article_id)
+
+            for crime in crimes:
+                insert_crime_into_table(args.keyword, news_article, crime)
+                cnn_crime_event.insert_to_qdrant(crime)
 
 
 def get_latest_time_for_cnn_news(keyword: t.List[str]):
@@ -403,24 +421,7 @@ if __name__ == "__main__":
 
     if args.mode == "mode_initialize":
         keywords = ["JP Morgan financial crime"]
-        for keyword in keywords:
-            downloaded_news_and_crimes = fetch_top_k_cnn_news_crimes(
-                keyword, args.amount, args.sort_by
-            )
-
-            reset_and_create_cnn_news_data_storage()
-            reset_and_create_crimes_data_storage()
-
-            for news_and_crimes in downloaded_news_and_crimes:
-                news_article, crimes = news_and_crimes
-                news_article, article_id = insert_cnn_news_into_table(
-                    keyword, news_article
-                )
-                insert_chunk_table(news_article, article_id)
-
-                for crime in crimes:
-                    insert_crime_into_table(args.keyword, news_article, crime)
-                    cnn_crime_event.insert_to_qdrant(crime)
+        initialize_system(keywords, args.amount, SortingBy.RELEVANCY)
 
     if args.mode == "mode_renew":
         keywords = ["JP Morgan financial crime"]
