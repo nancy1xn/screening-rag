@@ -77,3 +77,12 @@ def gen_adverse_media_report(entity_name):
 
 if __name__ == "__main__":
     gen_adverse_media_report(entity_name)
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+    if get_script_run_ctx() is None:
+        import sys
+
+        from streamlit.web.cli import main
+
+        sys.argv = ["streamlit", "run", __file__]
+        main()
