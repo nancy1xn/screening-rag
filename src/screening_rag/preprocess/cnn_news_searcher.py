@@ -104,7 +104,6 @@ def gen_report1(keyword: str) -> t.Dict[str, List[str]]:
                 related_subset,
             )
         )
-
         saved_chunks_group_1.append(
             SubquestionRelatedChunks(
                 sub_question=sub_question_index,
@@ -117,7 +116,11 @@ def gen_report1(keyword: str) -> t.Dict[str, List[str]]:
         result: str = Field(
             description="""
                 (1)Help generate the final answer in relation to the corresponding original question according to the chunks materials from "text" collection. 
-                (2)Include the corresponding [article_id] at the end of each sentence to indicate the source of the chunk.
+                (2)Include the corresponding [article_id] at the end of each sentence to indicate the source of the chunk. 
+                * ONLY use information from the provided context chunks (with article_id).
+                * DO NOT use any outside knowledge, even if the answer seems obvious.
+                * DO NOT guess, generalize, or fabricate any part of the answer.
+                * If there is no relevant information in the chunks for a question, reply exactly: → "No relevant information found."
                 (3)Please refer to the examples below when generating the answers:
                 
                         Question: 'q1_1 When was the company Google founded?'
@@ -147,35 +150,48 @@ def gen_report1(keyword: str) -> t.Dict[str, List[str]]:
     cur = db.cursor()
 
     for subquestion_pair in saved_chunks_group_1:
-        aggregated_2nd_level = structured_model.invoke(
-            [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=str(subquestion_pair.text_collection)),
-                HumanMessage(content=str(subquestion_pair.original_question)),
-            ]
-        )
+        if subquestion_pair.text_collection == []:
+            saved_answers.append(
+                {
+                    "sub_question": subquestion_pair.sub_question,
+                    "final_answer": "No relevant information found.",
+                }
+            )
+        else:
+            aggregated_2nd_level = structured_model.invoke(
+                [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=str(subquestion_pair.text_collection)),
+                    HumanMessage(content=str(subquestion_pair.original_question)),
+                ]
+            )
 
-        saved_answers.append(
-            {
-                "sub_question": subquestion_pair.sub_question,
-                "final_answer": aggregated_2nd_level.result,
-            }
-        )
+            saved_answers.append(
+                {
+                    "sub_question": subquestion_pair.sub_question,
+                    "final_answer": aggregated_2nd_level.result,
+                }
+            )
 
     final_answers_1 = []
     final_appendix_1 = []
     saved_final_answers = []
+    unanswered_questions = []
 
     for ans in saved_answers:
-        final_answers_1.append(ans["final_answer"])
-
-        match = re.findall(r"\[article_id:(\d+)\]", str(ans))
-        if match:
-            for article_id in match:
-                query = "select ID, title, url from my_database.CNN_NEWS where ID = %s"
-                cur.execute(query, (int(article_id),))
-                # final_appendix_1.append(cur.fetchall())
-                final_appendix_1.append(mit.one(cur.fetchall()))
+        if ans["final_answer"] == "No relevant information found.":
+            unanswered_questions.append(original_question[0][ans["sub_question"]])
+        else:
+            final_answers_1.append(ans["final_answer"])
+            match = re.findall(r"\[article_id:(\d+)\]", str(ans))
+            if match:
+                for article_id in match:
+                    query = (
+                        "select ID, title, url from my_database.CNN_NEWS where ID = %s"
+                    )
+                    cur.execute(query, (int(article_id),))
+                    # final_appendix_1.append(cur.fetchall())
+                    final_appendix_1.append(mit.one(cur.fetchall()))
     set_appendix_1 = set(final_appendix_1)
     sorted_appendix_1 = sorted(set_appendix_1, key=lambda x: x[0])
 
@@ -183,6 +199,7 @@ def gen_report1(keyword: str) -> t.Dict[str, List[str]]:
         {
             "Client Background": final_answers_1,
             "Appendix of Client Background": sorted_appendix_1,
+            "Unanswered Questions": unanswered_questions,
         }
     )
 
