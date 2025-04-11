@@ -14,7 +14,10 @@ from qdrant_client import QdrantClient, models
 
 from screening_rag.preprocess import cnn_crime_event
 from screening_rag.preprocess.cnn_crime_event import Crime
-from screening_rag.preprocess.cnn_news_chunking import insert_chunk_table
+from screening_rag.preprocess.cnn_news_chunking import chunk_text, insert_chunk_table
+from screening_rag.preprocess.cnn_news_chunking_to_qdrant import (
+    process_and_insert_chunks_to_cnn_news_chunk_vectors,
+)
 
 
 class NewsSummary(BaseModel):
@@ -334,7 +337,14 @@ def initialize_system(keywords: t.List[str], amount: int, sort_by: SortingBy):
             keyword, amount, sort_by
         ):
             article_id = insert_cnn_news_into_table(keyword, news_article)
-            insert_chunk_table(news_article, article_id)
+            chunks = chunk_text(news_article.maintext)
+            # [print(chunk) for chunk in chunks]
+            results = insert_chunk_table(article_id, chunks)
+            for chunk, article_id, chunk_id in results:
+                # print(chunk, article_id, chunk_id)
+                process_and_insert_chunks_to_cnn_news_chunk_vectors(
+                    chunk, article_id, chunk_id
+                )
 
             for crime in crimes:
                 insert_crime_into_table(keyword, news_article, crime)
@@ -387,12 +397,19 @@ def renew_system(keywords: t.List[str], sort_by: SortingBy):
         latesttime_for_cnn_news = get_latest_time_for_cnn_news(keyword)
         latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
 
-        for news_and_crimes in fetch_latest_cnn_news_crimes(
+        # for news_article, crimes in fetch_latest_cnn_news_crimes(
+        #     keyword, sort_by, datetime(2025, 2, 20, 00, 00, 0)
+        # ):
+        for news_article, crimes in fetch_latest_cnn_news_crimes(
             keyword, sort_by, latesttime_for_cnn_news
         ):
-            news_article, crimes = news_and_crimes
             article_id = insert_cnn_news_into_table(keyword, news_article)
-            insert_chunk_table(news_article, article_id)
+            chunks = chunk_text(news_article.maintext)
+            results = insert_chunk_table(article_id, chunks)
+            for chunk, article_id, chunk_id in results:
+                process_and_insert_chunks_to_cnn_news_chunk_vectors(
+                    chunk, article_id, chunk_id
+                )
 
             for crime in crimes:
                 insert_crime_into_table(keyword, news_article, crime)
@@ -425,7 +442,7 @@ if __name__ == "__main__":
 
     if args.mode == "mode_renew":
         keywords = ["JP Morgan financial crime"]
-        renew_system(keywords, SortingBy.RELEVANCY)
+        renew_system(keywords, SortingBy.NEWEST)
 
 
 # news collection
