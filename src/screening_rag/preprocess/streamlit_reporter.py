@@ -1,6 +1,6 @@
 import streamlit as st
 
-from screening_rag.preprocess.cnn_crime_event_searcher import gen_report
+from screening_rag.preprocess.cnn_crime_event_searcher import gen_report_crime_events
 from screening_rag.preprocess.cnn_news_searcher import gen_report1
 
 
@@ -26,7 +26,7 @@ entity_name = st.text_input("Entity Name", help="The keyword used to search CNN 
 def gen_adverse_media_report(entity_name):
     if st.button("generate report"):
         background, appendix1 = gen_report1(entity_name)
-        content, appendix = gen_report(entity_name)
+        content, appendix = gen_report_crime_events(entity_name)
         final_background, final_appendices1 = render_markdown(background, appendix1)
         final_contents, final_appendices = render_markdown(content, appendix)
 
