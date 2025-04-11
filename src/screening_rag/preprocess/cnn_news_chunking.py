@@ -9,14 +9,9 @@ from langchain.text_splitter import (
 from langchain_text_splitters.sentence_transformers import (
     SentenceTransformersTokenTextSplitter,
 )
-from newsplease.NewsArticle import NewsArticle
-
-from screening_rag.preprocess.cnn_news_chunking_to_qdrant import (
-    process_and_insert_chunks_to_cnn_news_chunk_vectors,
-)
 
 
-def chunk_text(text: str) -> t.Iterable[str]:
+def chunk_text(maintext: str) -> t.Iterable[str]:
     """Split text into several chunks which are smaller units
 
     Recursively split the text by characters, and then use a sentence model tokenizer to further split the text into chunk tokens.
@@ -28,20 +23,21 @@ def chunk_text(text: str) -> t.Iterable[str]:
     character_splitter = RecursiveCharacterTextSplitter(
         separators=["\n"], chunk_size=256, chunk_overlap=50, add_start_index=True
     )
-    text_splits = character_splitter.split_text(text)
+    text_splits = character_splitter.split_text(maintext)
     token_splitter = SentenceTransformersTokenTextSplitter(tokens_per_chunk=256)
 
     for section in text_splits:
         yield token_splitter.split_text(section)
 
 
-def insert_chunk_table(news_article: NewsArticle, article_id):
+def insert_chunk_table(article_id, chunks):
     mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
         host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
-    chunks = chunk_text(news_article.maintext)
+    # chunks = chunk_text(news_article.maintext)
+    inserted_chunks = []
     for chunk in chunks:
         cur.execute(
             """INSERT INTO my_database.CHUNK_CNN_NEWS (text, parent_article_id)
@@ -49,7 +45,7 @@ def insert_chunk_table(news_article: NewsArticle, article_id):
             (chunk, article_id),
         )
         chunk_id = cur.lastrowid
-        process_and_insert_chunks_to_cnn_news_chunk_vectors(chunk, article_id, chunk_id)
+        inserted_chunks.append((chunk, article_id, chunk_id))
 
     db.commit()
     cur.execute("select * from my_database.CHUNK_CNN_NEWS")
@@ -57,6 +53,7 @@ def insert_chunk_table(news_article: NewsArticle, article_id):
         print(row)
     cur.close()
     db.close()
+    return inserted_chunks
 
 
 if __name__ == "__main__":
