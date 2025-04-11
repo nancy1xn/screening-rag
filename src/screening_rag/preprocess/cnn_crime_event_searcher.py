@@ -60,8 +60,8 @@ class ChatReport(BaseModel):
 
 def gen_report(subject: str) -> t.Dict[str, List[str]]:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-    Qdrant_domain = os.getenv("QDRANT_DOMAIN")
-    client = QdrantClient(url=Qdrant_domain)
+    qdrant_domain = os.getenv("QDRANT_DOMAIN")
+    client = QdrantClient(url=qdrant_domain)
     original_question = [
         [
             f"q1_1 When was the company {subject} founded?",
@@ -74,9 +74,9 @@ def gen_report(subject: str) -> t.Dict[str, List[str]]:
                 If so, please provide the summary of financial crime the company {subject} accused of committing"""
         ],
     ]
-    MySQLdb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
+        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
     cur.execute("SELECT DISTINCT subject FROM my_database.SUBJECT_CNN_NEWS")
@@ -91,11 +91,11 @@ def gen_report(subject: str) -> t.Dict[str, List[str]]:
             HumanMessage(content=subject),
         ]
     )
-    question_openai_vectors_group_2 = embeddings.embed_documents(original_question[1])
-    question_openai_vectors_group_2: t.List[List[float]]
-    search_results_group_2 = client.query_points(
+    question_openai_vectors_group = embeddings.embed_documents(original_question[1])
+    question_openai_vectors_group: t.List[List[float]]
+    search_results_group = client.query_points(
         collection_name="crime_cnn_news_vectors",
-        query=question_openai_vectors_group_2[0],
+        query=question_openai_vectors_group[0],
         limit=2,
         query_filter=models.Filter(
             must=[
@@ -108,27 +108,27 @@ def gen_report(subject: str) -> t.Dict[str, List[str]]:
             ]
         ),
     )
-    saved_chunks_group_2 = []
-    for crime in search_results_group_2.points:
-        if crime.score >= 0.41:
-            saved_chunks_group_2.append(
+    saved_chunks_group = []
+    for event in search_results_group.points:
+        if event.score >= 0.41:
+            saved_chunks_group.append(
                 SubquestionRelatedChunks(
                     original_question=original_question[1][0],
-                    crime_id=crime.payload["id"],
-                    time=crime.payload["time"],
-                    subjects=crime.payload["subjects"],
-                    summary=crime.payload["summary"],
-                    adverse_info_type=crime.payload["adverse_info_type"],
-                    violated_laws=crime.payload["violated_laws"],
-                    enforcement_action=crime.payload["enforcement_action"],
+                    crime_id=event.payload["id"],
+                    time=event.payload["time"],
+                    subjects=event.payload["subjects"],
+                    summary=event.payload["summary"],
+                    adverse_info_type=event.payload["adverse_info_type"],
+                    violated_laws=event.payload["violated_laws"],
+                    enforcement_action=event.payload["enforcement_action"],
                 )
             )
 
-    sorted_time_saved_chunks_group_2 = sorted(
-        saved_chunks_group_2, key=lambda x: x.time, reverse=True
+    sorted_time_saved_chunks_group = sorted(
+        saved_chunks_group, key=lambda x: x.time, reverse=True
     )
-    json_sorted_time_saved_chunks_group_2 = json.dumps(
-        [chunk.model_dump() for chunk in sorted_time_saved_chunks_group_2], indent=4
+    json_sorted_time_saved_chunks_group = json.dumps(
+        [chunk.model_dump() for chunk in sorted_time_saved_chunks_group], indent=4
     )
 
     structured_model = model.with_structured_output(ChatReport)
@@ -138,20 +138,20 @@ def gen_report(subject: str) -> t.Dict[str, List[str]]:
                     YOU MUST RETAIN THE NECESSARY NEWS BASED ON INSTRUCTIONS.
                  """
 
-    MySQLdb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
+        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
 
     aggregated_2nd_level = structured_model.invoke(
         [
             SystemMessage(content=system_ans),
-            HumanMessage(content=json_sorted_time_saved_chunks_group_2),
+            HumanMessage(content=json_sorted_time_saved_chunks_group),
         ]
     )
 
-    final_appendix_2 = []
+    final_appendix = []
     saved_final_answers = []
 
     match = re.findall(r"\[id: (\d+)\]", str(aggregated_2nd_level.result))
@@ -162,18 +162,18 @@ def gen_report(subject: str) -> t.Dict[str, List[str]]:
             )
             cur.execute(query, (int(id),))
             for row in cur.fetchall():
-                final_appendix_2.append(row)
+                final_appendix.append(row)
 
-    sorted_appendix_2 = sorted(final_appendix_2, key=lambda x: x[0])
+    sorted_appendix = sorted(final_appendix, key=lambda x: x[0])
     saved_final_answers.append(
         {
             "Adverse Information Report Headline": aggregated_2nd_level.result,
-            "Appendix of Adverse Information Report Headline": sorted_appendix_2,
+            "Appendix of Adverse Information Report Headline": sorted_appendix,
         }
     )
 
     print(saved_final_answers)
-    return aggregated_2nd_level.result, sorted_appendix_2
+    return aggregated_2nd_level.result, sorted_appendix
 
 
 if __name__ == "__main__":
