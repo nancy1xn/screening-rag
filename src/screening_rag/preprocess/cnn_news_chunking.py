@@ -35,9 +35,9 @@ def insert_chunk_table(news_article: NewsArticle, article_id):
         for section in text_split:
             yield token_splitter.split_text(section)
 
-    MySQLdb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
+        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
     chunks = chunk_text(news_article.maintext)
