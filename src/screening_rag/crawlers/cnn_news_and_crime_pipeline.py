@@ -169,9 +169,9 @@ def fetch_top_k_cnn_news_crimes(
 
 
 def reset_and_create_cnn_news_data_storage():
-    MySQLdb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
+        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
 
@@ -199,7 +199,8 @@ def reset_and_create_cnn_news_data_storage():
     cur.close()
     db.close()
 
-    client = QdrantClient(url="http://localhost:6333")
+    qdrant_domain = os.getenv("QDRANT_DOMAIN")
+    client = QdrantClient(url=qdrant_domain)
     client.delete_collection(collection_name="cnn_news_chunk_vectors")
     client.create_collection(
         collection_name="cnn_news_chunk_vectors",
@@ -207,10 +208,10 @@ def reset_and_create_cnn_news_data_storage():
     )
 
 
-def insert_cnn_news_into_table(keyword: str, news_article: NewsArticle):
-    MySQLdb_pw = os.getenv("MYSQLDB_PW")
+def insert_cnn_news_into_table(keyword: str, news_article: NewsArticle) -> int:
+    mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
+        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
     cur.execute(
@@ -234,13 +235,13 @@ def insert_cnn_news_into_table(keyword: str, news_article: NewsArticle):
     cur.close()
     db.close()
 
-    return news_article, article_id
+    return article_id
 
 
 def reset_and_create_crimes_data_storage():
-    MySQLdb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
+        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
 
@@ -282,9 +283,9 @@ def reset_and_create_crimes_data_storage():
 
 
 def insert_crime_into_table(keyword: str, news_article: NewsArticle, crime: Crime):
-    MySQLdb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
+        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
     crime_adverse_info_type = ",".join(crime.adverse_info_type)
@@ -332,18 +333,18 @@ def initialize_system(keywords: t.List[str], amount: int, sort_by: SortingBy):
         for news_article, crimes in fetch_top_k_cnn_news_crimes(
             keyword, amount, sort_by
         ):
-            news_article, article_id = insert_cnn_news_into_table(keyword, news_article)
+            article_id = insert_cnn_news_into_table(keyword, news_article)
             insert_chunk_table(news_article, article_id)
 
             for crime in crimes:
-                insert_crime_into_table(args.keyword, news_article, crime)
+                insert_crime_into_table(keyword, news_article, crime)
                 cnn_crime_event.insert_to_qdrant(crime)
 
 
 def get_latest_time_for_cnn_news(keyword: t.List[str]):
-    MySQLdb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
+        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
     cur.execute(
@@ -360,30 +361,6 @@ def get_latest_time_for_cnn_news(keyword: t.List[str]):
     cur.close()
     db.close()
     return latesttime_for_cnn_news[0][0]
-
-
-# def handle_and_renew_news_and_crimes(
-#     article: NewsArticle,
-# ) -> t.List[Crime]:
-#     model = ChatOpenAI(model="gpt-4o", temperature=0)
-#     structured_model = model.with_structured_output(NewsSummary)
-
-#     system = """You are a helpful assistant to check if the contents contains adverse media related to financial crime and help summarize the event,
-#                 please return boolean: True. If the news is not related to financial crime, please return boolean: False.
-
-#                 In addition, please list out all financial crimes in the news to summarize the financial crime in terms of the time (ONLY USE "news published date"((newsarticle.date_publish))）, the event,
-#                 the crime type, the direct object of wrongdoing, and the laws or regulations action."""
-
-#     news_summary = structured_model.invoke(
-#         [
-#             SystemMessage(content=system),
-#             HumanMessage(content=article.maintext),
-#             HumanMessage(content=str(article.date_publish)),
-#         ]
-#     )
-#     news_summary: NewsSummary
-#     if news_summary.is_adverse_news:
-#         return news_summary.crimes
 
 
 def fetch_latest_cnn_news_crimes(
@@ -403,6 +380,23 @@ def fetch_latest_cnn_news_crimes(
                 news_article_collection.append((news, crimes))
 
         page += 1
+
+
+def renew_system(keywords: t.List[str], sort_by: SortingBy):
+    for keyword in keywords:
+        latesttime_for_cnn_news = get_latest_time_for_cnn_news(keyword)
+        latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
+
+        for news_and_crimes in fetch_latest_cnn_news_crimes(
+            keyword, sort_by, latesttime_for_cnn_news
+        ):
+            news_article, crimes = news_and_crimes
+            article_id = insert_cnn_news_into_table(keyword, news_article)
+            insert_chunk_table(news_article, article_id)
+
+            for crime in crimes:
+                insert_crime_into_table(keyword, news_article, crime)
+                cnn_crime_event.insert_to_qdrant(crime)
 
 
 if __name__ == "__main__":
@@ -431,25 +425,7 @@ if __name__ == "__main__":
 
     if args.mode == "mode_renew":
         keywords = ["JP Morgan financial crime"]
-        for keyword in keywords:
-            latesttime_for_cnn_news = get_latest_time_for_cnn_news(keyword)
-            latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
-            # renewed_news_and_crimes = fetch_latest_cnn_news_crimes(
-            #     keyword, SortingBy.NEWEST, datetime(2025, 3, 12, 00, 00, 0)
-            # )
-            renewed_news_and_crimes = fetch_latest_cnn_news_crimes(
-                keyword, SortingBy.NEWEST, latesttime_for_cnn_news
-            )
-            for news_and_crimes in renewed_news_and_crimes:
-                news_article, crimes = news_and_crimes
-                news_article, article_id = insert_cnn_news_into_table(
-                    keyword, news_article
-                )
-                insert_chunk_table(news_article, article_id)
-
-                for crime in crimes:
-                    insert_crime_into_table(args.keyword, news_article, crime)
-                    cnn_crime_event.insert_to_qdrant(crime)
+        renew_system(keywords, SortingBy.RELEVANCY)
 
 
 # news collection
