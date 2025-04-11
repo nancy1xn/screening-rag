@@ -9,12 +9,12 @@ from qdrant_client import QdrantClient, models
 def process_and_insert_chunks_to_cnn_news_chunk_vectors(chunk, article_id, chunk_id):
     unique_id = 0
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-    Qdrant_domain = os.getenv("QDRANT_DOMAIN")
+    qdrant_domain = os.getenv("QDRANT_DOMAIN")
     text_openai_vectors = embeddings.embed_documents([chunk[0]])
     text_openai_vectors: t.List[List[float]]
 
     for each_text_openai_vectors in text_openai_vectors:
-        client = QdrantClient(url=Qdrant_domain)
+        client = QdrantClient(url=qdrant_domain)
         client.upsert(
             collection_name="cnn_news_chunk_vectors",
             points=[
