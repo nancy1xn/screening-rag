@@ -44,8 +44,8 @@ class Relevance(BaseModel):
 
 def gen_report1(keyword: str) -> t.Dict[str, List[str]]:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-    Qdrant_domain = os.getenv("QDRANT_DOMAIN")
-    client = QdrantClient(url=Qdrant_domain)
+    qdrant_domain = os.getenv("QDRANT_DOMAIN")
+    client = QdrantClient(url=qdrant_domain)
     subject = keyword
 
     original_question = [
@@ -143,9 +143,9 @@ def gen_report1(keyword: str) -> t.Dict[str, List[str]]:
 
     saved_answers = []
 
-    MySQLdb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_pw = os.getenv("MYSQLDB_PW")
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=MySQLdb_pw, database="my_database"
+        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
     )
     cur = db.cursor()
 
