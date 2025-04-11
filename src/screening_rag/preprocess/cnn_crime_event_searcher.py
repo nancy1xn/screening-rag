@@ -24,7 +24,7 @@ class SimilarSubjects(BaseModel):
     )
 
 
-class SubquestionRelatedChunks(BaseModel):
+class QuestionRelatedChunks(BaseModel):
     original_question: Optional[str]
     crime_id: Optional[int]
     time: Optional[str]
@@ -114,13 +114,13 @@ def search_vectors_similar_to_query_and_matching_similar_subjects(
     return search_results_group
 
 
-def convert_search_results_to_subquestion_chunks(
+def convert_search_results_to_question_related_chunks(
     search_result_group: QueryResponse, original_question
-) -> List[SubquestionRelatedChunks]:
+) -> List[QuestionRelatedChunks]:
     saved_chunks_group = []
     for event in search_result_group.points:
         saved_chunks_group.append(
-            SubquestionRelatedChunks(
+            QuestionRelatedChunks(
                 original_question=original_question,
                 crime_id=event.payload["id"],
                 time=event.payload["time"],
@@ -138,7 +138,7 @@ def convert_search_results_to_subquestion_chunks(
 
 
 def deduplicate_and_generate_answer(
-    saved_chunks_group: List[SubquestionRelatedChunks],
+    saved_chunks_group: List[QuestionRelatedChunks],
 ) -> List[str]:
     sorted_time_saved_chunks_group = sorted(
         saved_chunks_group, key=lambda x: x.time, reverse=True
@@ -166,14 +166,7 @@ def deduplicate_and_generate_answer(
 def extract_ids_from_aggregated_results(
     aggregated_2nd_level_result: List[str],
 ) -> List[str]:
-    mysqldb_pw = os.getenv("MYSQLDB_PW")
-    db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
-    )
-    cur = db.cursor()
     match_ids = re.findall(r"\[id: (\d+)\]", str(aggregated_2nd_level_result))
-    cur.close()
-    db.close()
     return match_ids
 
 
@@ -191,10 +184,12 @@ def select_grounding_datas_from_db(match_ids) -> List[tuple]:
             final_appendix.append(row)
 
     sorted_appendix = sorted(final_appendix, key=lambda x: x[0])
+    cur.close()
+    db.close()
     return sorted_appendix
 
 
-def gen_report_crime_events(subject: str) -> t.Dict[str, List[str]]:
+def generate_crime_events_report(subject: str) -> t.Dict[str, List[str]]:
     original_question = f"""Has the company {subject} been accused or alleged to have committed or facilitated any financial crimes, 
 or failed to prevent such crimes? If so, please summarize the incidents involving {subject}."""
     existing_subjects = select_distinct_subjects_from_db(subject)
@@ -203,7 +198,7 @@ or failed to prevent such crimes? If so, please summarize the incidents involvin
         original_question, generated_similar_subjects
     )
     # print(search_result_group)
-    saved_chunks_group = convert_search_results_to_subquestion_chunks(
+    saved_chunks_group = convert_search_results_to_question_related_chunks(
         search_result_group, original_question
     )
     aggregated_2nd_level_results = deduplicate_and_generate_answer(saved_chunks_group)
@@ -221,4 +216,4 @@ or failed to prevent such crimes? If so, please summarize the incidents involvin
 
 
 if __name__ == "__main__":
-    gen_report_crime_events("JPMorgan")
+    generate_crime_events_report("JPMorgan")
