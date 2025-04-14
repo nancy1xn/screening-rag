@@ -25,7 +25,7 @@ st.write("# Adverse Media Report")
 entity_name = st.text_input("Entity Name", help="The keyword used to search CNN news.")
 
 
-def gen_adverse_media_report(entity_name):
+def main(entity_name):
     if st.button("generate report"):
         background, appendix1 = generate_background_report(entity_name)
         content, appendix = generate_crime_events_report(entity_name)
@@ -77,14 +77,22 @@ def gen_adverse_media_report(entity_name):
         )
 
 
+# gen_adverse_media_report(entity_name)
+
 if __name__ == "__main__":
-    gen_adverse_media_report(entity_name)
-    from streamlit.runtime.scriptrunner import get_script_run_ctx
+    # gen_adverse_media_report(entity_name)
+    # from streamlit.runtime.scriptrunner import get_script_run_ctx
 
-    if get_script_run_ctx() is None:
-        import sys
+    # if get_script_run_ctx() is None:
+    #     import sys
 
-        from streamlit.web.cli import main
+    #     from streamlit.web.cli import main
 
-        sys.argv = ["streamlit", "run", __file__]
-        main()
+    #     sys.argv = ["streamlit", "run", __file__]
+    #     main()
+    if "__streamlitmagic__" not in locals():
+        import streamlit.web.bootstrap
+
+        streamlit.web.bootstrap.run(__file__, False, [], {})
+    #                                             ^^^^^ Difference here
+    main(entity_name)
