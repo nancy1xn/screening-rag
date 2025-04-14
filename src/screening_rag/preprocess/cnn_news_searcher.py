@@ -50,7 +50,11 @@ class ChatReport(BaseModel):
             * ONLY use information from the provided context chunks (with article_id).
             * DO NOT use any outside knowledge, even if the answer seems obvious.
             * DO NOT guess, generalize, or fabricate any part of the answer.
-            * Answer the question based on the provided context. If the context contains clues or implications, make reasonable inferences. Only reply with "No relevant info found" if the context has no relevant content at all.
+            * Answer the question based on the provided context. If the context contains clues or implications, make reasonable inferences. If information for any of these items is not available, please respond clearly with:
+                -> "No relevant information found for founding time."
+                -> "No relevant information found for headquarters location."
+                -> "No relevant information found for listing status."
+                -> "No relevant information found for type of business."
             (3)Please refer to the examples below when generating the answers:
             
                     Question: 'q1_1 When was the company Google founded?'
@@ -146,12 +150,35 @@ def generate_answer(saved_chunks_group: List[SubquestionRelatedChunks]) -> List[
     saved_answers = []
     for subquestion_pair in saved_chunks_group:
         if subquestion_pair.text_collection == []:
-            saved_answers.append(
-                {
-                    "sub_question": subquestion_pair.sub_question,
-                    "final_answer": "No relevant information found.",
-                }
-            )
+            if subquestion_pair.sub_question == 0:
+                saved_answers.append(
+                    {
+                        "sub_question": subquestion_pair.sub_question,
+                        "final_answer": "No relevant information found for founding time.",
+                    }
+                )
+            elif subquestion_pair.sub_question == 1:
+                saved_answers.append(
+                    {
+                        "sub_question": subquestion_pair.sub_question,
+                        "final_answer": "No relevant information found for headquarters location.",
+                    }
+                )
+            elif subquestion_pair.sub_question == 2:
+                saved_answers.append(
+                    {
+                        "sub_question": subquestion_pair.sub_question,
+                        "final_answer": "No relevant information found for listing status.",
+                    }
+                )
+            elif subquestion_pair.sub_question == 3:
+                saved_answers.append(
+                    {
+                        "sub_question": subquestion_pair.sub_question,
+                        "final_answer": "No relevant information found for type of business.",
+                    }
+                )
+
         else:
             aggregated_2nd_level = structured_model.invoke(
                 [
