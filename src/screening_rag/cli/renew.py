@@ -1,0 +1,64 @@
+import typing as t
+from datetime import datetime
+
+from newsplease.NewsArticle import NewsArticle
+
+from custom_types import Crime, SortingBy
+from db import (
+    get_latest_time_for_cnn_news,
+    insert_chunk_table,
+    insert_cnn_news_into_table,
+    insert_crime_into_table,
+)
+from qdrant import (
+    process_and_insert_cnn_news_chunks_to_qdrant,
+    process_and_insert_crime_to_qdrant,
+)
+from screening_rag.cli.initialize import (
+    chunk_text,
+    get_cnn_news,
+    get_crimes_from_summarized_news,
+)
+
+
+def fetch_latest_cnn_news_crimes(
+    keyword: str,
+    sorting_by,
+    latesttime: datetime,
+) -> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
+    page = 1
+    news_article_collection = []
+
+    while True:
+        news_articles = get_cnn_news(keyword, sorting_by, page)
+        for news in news_articles:
+            if news.date_publish <= latesttime:
+                return news_article_collection
+            if crimes := get_crimes_from_summarized_news(news):
+                news_article_collection.append((news, crimes))
+
+        page += 1
+
+
+def renew_system(keywords: t.List[str], sort_by: SortingBy):
+    for keyword in keywords:
+        latesttime_for_cnn_news = get_latest_time_for_cnn_news(keyword)
+        latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
+
+        # for news_article, crimes in fetch_latest_cnn_news_crimes(
+        #     keyword, sort_by, datetime(2025, 2, 20, 00, 00, 0)
+        # ):
+        for news_article, crimes in fetch_latest_cnn_news_crimes(
+            keyword, sort_by, latesttime_for_cnn_news
+        ):
+            article_id = insert_cnn_news_into_table(keyword, news_article)
+            chunks = chunk_text(news_article.maintext)
+            results = insert_chunk_table(article_id, chunks)
+            for chunk, article_id, chunk_id in results:
+                process_and_insert_cnn_news_chunks_to_qdrant(
+                    chunk, article_id, chunk_id
+                )
+
+            for crime in crimes:
+                insert_crime_into_table(keyword, news_article, crime)
+                process_and_insert_crime_to_qdrant(crime)
