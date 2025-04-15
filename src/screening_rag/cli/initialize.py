@@ -13,15 +13,15 @@ from langchain_text_splitters.sentence_transformers import (
 from newsplease import NewsPlease
 from newsplease.NewsArticle import NewsArticle
 
-from custom_types import Crime, NewsSummary, SortingBy
-from db import (
+from screening_rag.custom_types import Crime, NewsSummary, SortingBy
+from screening_rag.db import (
     insert_chunk_table,
     insert_cnn_news_into_table,
     insert_crime_into_table,
     reset_and_create_cnn_news_sql_data_storage,
     reset_and_create_crimes_sql_data_storage,
 )
-from qdrant import (
+from screening_rag.qdrant import (
     process_and_insert_cnn_news_chunks_to_qdrant,
     process_and_insert_crime_to_qdrant,
     reset_and_create_cnn_news_qdrant_data_storage,

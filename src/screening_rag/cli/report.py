@@ -1,9 +1,9 @@
 import streamlit as st
 
-from cnn_crime_searcher_tool import (
+from screening_rag.cnn_crime_searcher_tool import (
     generate_crime_events_report,
 )
-from cnn_news_searcher_tool import generate_background_report
+from screening_rag.cnn_news_searcher_tool import generate_background_report
 
 
 def render_markdown(contents, appendices):

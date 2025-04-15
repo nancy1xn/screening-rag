@@ -1,8 +1,8 @@
 from argparse import ArgumentParser
 
-from custom_types import SortingBy
 from screening_rag.cli.initialize import initialize_system
 from screening_rag.cli.renew import renew_system
+from screening_rag.custom_types import SortingBy
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
