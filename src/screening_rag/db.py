@@ -12,8 +12,15 @@ from screening_rag.custom_types import Crime
 
 def reset_and_create_cnn_news_sql_data_storage():
     mysqldb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_host = os.getenv("MYSQLDB_HOST")
+    mysqldb_user = os.getenv("MYSQLDB_USER")
+    mysqldb_database = os.getenv("MYSQLDB_DATABASE")
+
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
+        host=mysqldb_host,
+        user=mysqldb_user,
+        password=mysqldb_pw,
+        database=mysqldb_database,
     )
     cur = db.cursor()
 
@@ -82,8 +89,15 @@ def insert_cnn_news_into_table(keyword: str, news_article: NewsArticle) -> int:
 
 def reset_and_create_crimes_sql_data_storage():
     mysqldb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_host = os.getenv("MYSQLDB_HOST")
+    mysqldb_user = os.getenv("MYSQLDB_USER")
+    mysqldb_database = os.getenv("MYSQLDB_DATABASE")
+
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
+        host=mysqldb_host,
+        user=mysqldb_user,
+        password=mysqldb_pw,
+        database=mysqldb_database,
     )
     cur = db.cursor()
 
@@ -119,8 +133,15 @@ def reset_and_create_crimes_sql_data_storage():
 
 def insert_crime_into_table(keyword: str, news_article: NewsArticle, crime: Crime):
     mysqldb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_host = os.getenv("MYSQLDB_HOST")
+    mysqldb_user = os.getenv("MYSQLDB_USER")
+    mysqldb_database = os.getenv("MYSQLDB_DATABASE")
+
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
+        host=mysqldb_host,
+        user=mysqldb_user,
+        password=mysqldb_pw,
+        database=mysqldb_database,
     )
     cur = db.cursor()
     crime_adverse_info_type = ",".join(crime.adverse_info_type)
@@ -162,8 +183,15 @@ def insert_crime_into_table(keyword: str, news_article: NewsArticle, crime: Crim
 
 def insert_chunk_table(article_id, chunks):
     mysqldb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_host = os.getenv("MYSQLDB_HOST")
+    mysqldb_user = os.getenv("MYSQLDB_USER")
+    mysqldb_database = os.getenv("MYSQLDB_DATABASE")
+
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
+        host=mysqldb_host,
+        user=mysqldb_user,
+        password=mysqldb_pw,
+        database=mysqldb_database,
     )
     cur = db.cursor()
     # chunks = chunk_text(news_article.maintext)
@@ -188,8 +216,15 @@ def insert_chunk_table(article_id, chunks):
 
 def get_latest_time_for_cnn_news(keyword: t.List[str]):
     mysqldb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_host = os.getenv("MYSQLDB_HOST")
+    mysqldb_user = os.getenv("MYSQLDB_USER")
+    mysqldb_database = os.getenv("MYSQLDB_DATABASE")
+
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
+        host=mysqldb_host,
+        user=mysqldb_user,
+        password=mysqldb_pw,
+        database=mysqldb_database,
     )
     cur = db.cursor()
     cur.execute(
@@ -210,8 +245,15 @@ def get_latest_time_for_cnn_news(keyword: t.List[str]):
 
 def select_background_grounding_data_from_db(match_ids, final_appendix) -> List[tuple]:
     mysqldb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_host = os.getenv("MYSQLDB_HOST")
+    mysqldb_user = os.getenv("MYSQLDB_USER")
+    mysqldb_database = os.getenv("MYSQLDB_DATABASE")
+
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
+        host=mysqldb_host,
+        user=mysqldb_user,
+        password=mysqldb_pw,
+        database=mysqldb_database,
     )
     cur = db.cursor()
     for article_id in match_ids:
@@ -223,8 +265,15 @@ def select_background_grounding_data_from_db(match_ids, final_appendix) -> List[
 
 def select_distinct_subjects_from_db(subject: str) -> t.List[tuple]:
     mysqldb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_host = os.getenv("MYSQLDB_HOST")
+    mysqldb_user = os.getenv("MYSQLDB_USER")
+    mysqldb_database = os.getenv("MYSQLDB_DATABASE")
+
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
+        host=mysqldb_host,
+        user=mysqldb_user,
+        password=mysqldb_pw,
+        database=mysqldb_database,
     )
     cur = db.cursor()
     cur.execute("SELECT DISTINCT subject FROM my_database.SUBJECT_CNN_NEWS")
@@ -236,8 +285,15 @@ def select_distinct_subjects_from_db(subject: str) -> t.List[tuple]:
 
 def select_crime_events_grounding_data_from_db(match_ids) -> List[tuple]:
     mysqldb_pw = os.getenv("MYSQLDB_PW")
+    mysqldb_host = os.getenv("MYSQLDB_HOST")
+    mysqldb_user = os.getenv("MYSQLDB_USER")
+    mysqldb_database = os.getenv("MYSQLDB_DATABASE")
+
     db = MySQLdb.connect(
-        host="127.0.0.1", user="root", password=mysqldb_pw, database="my_database"
+        host=mysqldb_host,
+        user=mysqldb_user,
+        password=mysqldb_pw,
+        database=mysqldb_database,
     )
     cur = db.cursor()
     final_appendix = []
