@@ -20,9 +20,13 @@ from screening_rag.db import (
 )
 
 
-def get_similar_subjects(
+def get_linked_entities(
     existing_subjects: t.List[tuple], subject: str
 ) -> List[SimilarSubjects]:
+    """
+    Retrieve names of entities that are directly associated with the subject,
+    such as its key personnel (e.g., CEO), but not other unrelated or similar entities.
+    """
     model = ChatOpenAI(model="gpt-4o", temperature=0)
     system_prompt_subjectkeywords = """You are a helpful assistant to perform partial keyword matching to find relevant alternatives partially similar to the keyword input by the user. Remember that original input keyword shall be included """
 
@@ -117,7 +121,7 @@ def generate_crime_events_report(subject: str) -> t.Dict[str, List[str]]:
     original_question = f"""Has the company {subject} been accused or alleged to have committed or facilitated any financial crimes, 
 or failed to prevent such crimes? If so, please summarize the incidents involving {subject}."""
     existing_subjects = select_distinct_subjects_from_db(subject)
-    generated_similar_subjects = get_similar_subjects(existing_subjects, subject)
+    generated_similar_subjects = get_linked_entities(existing_subjects, subject)
     related_crime_events = (
         search_vectors_similar_to_query_and_matching_similar_subjects(
             [original_question], generated_similar_subjects
