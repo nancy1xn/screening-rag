@@ -42,13 +42,13 @@ def search_vectors_similar_to_query_and_matching_similar_subjects(
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
     qdrant_domain = os.getenv("QDRANT_DOMAIN")
     client = QdrantClient(url=qdrant_domain)
-    question_openai_vectors_group = embeddings.embed_documents(original_question)
+    question_openai_vectors_group = embeddings.embed_documents([original_question])
     question_openai_vectors_group: t.List[List[float]]
-    search_results_group = client.query_points(
+    return client.query_points(
         collection_name="crime_cnn_news_vectors",
         query=question_openai_vectors_group[0],
         limit=10,
-        score_threshold=0.05,
+        score_threshold=0.41,
         query_filter=models.Filter(
             must=[
                 models.FieldCondition(
@@ -58,7 +58,6 @@ def search_vectors_similar_to_query_and_matching_similar_subjects(
             ]
         ),
     )
-    return search_results_group
 
 
 def convert_search_results_to_question_related_chunks(
@@ -136,3 +135,7 @@ or failed to prevent such crimes? If so, please summarize the incidents involvin
         }
     )
     return aggregated_2nd_level_results, sorted_appendices
+
+
+if __name__ == "__main__":
+    generate_crime_events_report("JP Morgan")
