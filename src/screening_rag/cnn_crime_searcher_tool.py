@@ -37,12 +37,12 @@ def get_similar_subjects(
 
 
 def search_vectors_similar_to_query_and_matching_similar_subjects(
-    original_question: str, generated_similar_subjects: SimilarSubjects
+    original_question: List[str], generated_similar_subjects: SimilarSubjects
 ) -> QueryResponse:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
     qdrant_domain = os.getenv("QDRANT_DOMAIN")
     client = QdrantClient(url=qdrant_domain)
-    question_openai_vectors_group = embeddings.embed_documents([original_question])
+    question_openai_vectors_group = embeddings.embed_documents(original_question)
     question_openai_vectors_group: t.List[List[float]]
     return client.query_points(
         collection_name="crime_cnn_news_vectors",
@@ -61,10 +61,10 @@ def search_vectors_similar_to_query_and_matching_similar_subjects(
 
 
 def convert_search_results_to_question_related_chunks(
-    search_result_group: QueryResponse, original_question
+    related_crime_events: QueryResponse, original_question
 ) -> List[QuestionRelatedChunks]:
     saved_chunks_group = []
-    for event in search_result_group.points:
+    for event in related_crime_events.points:
         saved_chunks_group.append(
             QuestionRelatedChunks(
                 original_question=original_question,
@@ -118,11 +118,13 @@ def generate_crime_events_report(subject: str) -> t.Dict[str, List[str]]:
 or failed to prevent such crimes? If so, please summarize the incidents involving {subject}."""
     existing_subjects = select_distinct_subjects_from_db(subject)
     generated_similar_subjects = get_similar_subjects(existing_subjects, subject)
-    search_result_group = search_vectors_similar_to_query_and_matching_similar_subjects(
-        original_question, generated_similar_subjects
+    related_crime_events = (
+        search_vectors_similar_to_query_and_matching_similar_subjects(
+            [original_question], generated_similar_subjects
+        )
     )
     saved_chunks_group = convert_search_results_to_question_related_chunks(
-        search_result_group, original_question
+        related_crime_events, original_question
     )
     aggregated_2nd_level_results = deduplicate_and_generate_answer(saved_chunks_group)
     match_ids = extract_ids_from_aggregated_results(aggregated_2nd_level_results)
