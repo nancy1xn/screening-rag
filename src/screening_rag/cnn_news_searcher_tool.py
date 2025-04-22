@@ -15,12 +15,12 @@ from screening_rag.custom_types import (
 from screening_rag.db import select_background_grounding_data_from_db
 
 
-def search_vectors_and_group_subsets(question_value: List[str]) -> List[tuple]:
+def search_vectors_and_group_subsets(question_values: List[str]) -> List[tuple]:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
     qdrant_domain = os.getenv("QDRANT_DOMAIN")
     client = QdrantClient(url=qdrant_domain)
 
-    question_openai_vectors = embeddings.embed_documents(question_value)
+    question_openai_vectors = embeddings.embed_documents(question_values)
     question_openai_vectors: t.List[List[float]]
     search_results = client.query_points(
         collection_name="cnn_news_chunk_vectors",
