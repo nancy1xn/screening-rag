@@ -1,4 +1,3 @@
-import os
 import typing as t
 from typing import List
 
@@ -6,11 +5,13 @@ from langchain_openai import OpenAIEmbeddings
 from qdrant_client import QdrantClient, models
 
 from screening_rag.custom_types import Crime
+from screening_rag.db import Settings
+
+settings = Settings()
 
 
 def reset_and_create_cnn_news_qdrant_data_storage():
-    qdrant_domain = os.getenv("QDRANT_DOMAIN")
-    client = QdrantClient(url=qdrant_domain)
+    client = QdrantClient(url=settings.QDRANT_DOMAIN)
     client.delete_collection(collection_name="cnn_news_chunk_vectors")
     client.create_collection(
         collection_name="cnn_news_chunk_vectors",
@@ -19,8 +20,7 @@ def reset_and_create_cnn_news_qdrant_data_storage():
 
 
 def reset_and_create_crime_qdrant_data_storage():
-    qdrant_domain = os.getenv("QDRANT_DOMAIN")
-    client = QdrantClient(url=qdrant_domain)
+    client = QdrantClient(url=settings.QDRANT_DOMAIN)
     client.delete_collection(collection_name="crime_cnn_news_vectors")
     client.create_collection(
         collection_name="crime_cnn_news_vectors",
@@ -31,12 +31,11 @@ def reset_and_create_crime_qdrant_data_storage():
 def process_and_insert_cnn_news_chunks_to_qdrant(chunk, article_id, chunk_id):
     unique_id = 0
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-    qdrant_domain = os.getenv("QDRANT_DOMAIN")
     text_openai_vectors = embeddings.embed_documents([chunk[0]])
     text_openai_vectors: t.List[List[float]]
 
     for each_text_openai_vectors in text_openai_vectors:
-        client = QdrantClient(url=qdrant_domain)
+        client = QdrantClient(url=settings.QDRANT_DOMAIN)
         client.upsert(
             collection_name="cnn_news_chunk_vectors",
             points=[
@@ -56,8 +55,7 @@ def process_and_insert_cnn_news_chunks_to_qdrant(chunk, article_id, chunk_id):
 
 def process_and_insert_crime_to_qdrant(crime: Crime):
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-    qdrant_domain = os.getenv("QDRANT_DOMAIN")
-    client = QdrantClient(url=qdrant_domain)
+    client = QdrantClient(url=settings.QDRANT_DOMAIN)
     crime_openai_vectors = embeddings.embed_documents([str(crime.summary)])
     crime_openai_vectors: t.List[t.List[float]]
     crime_openai_vector = crime_openai_vectors[0]
