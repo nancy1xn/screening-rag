@@ -151,6 +151,7 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
         f"q1_4 What type of business does the company {subject} provide?",
     ]
     saved_chunks_group = []
+
     for sub_question_index, question_value in enumerate(original_question):
         related_subset = search_vectors_and_group_subsets([question_value])
         filtered_qa_results = filter_subsets(related_subset)
