@@ -20,6 +20,7 @@ from screening_rag.db import (
 )
 
 
+# Retrieve directly associated entity names (e.g., CEO)
 def get_linked_entities(
     existing_subjects: t.List[tuple], subject: str
 ) -> List[SimilarSubjects]:
@@ -41,12 +42,12 @@ def get_linked_entities(
 
 
 def search_vectors_similar_to_query_and_matching_similar_subjects(
-    original_question: List[str], generated_similar_subjects: SimilarSubjects
+    original_questions: List[str], generated_similar_subjects: SimilarSubjects
 ) -> QueryResponse:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
     qdrant_domain = os.getenv("QDRANT_DOMAIN")
     client = QdrantClient(url=qdrant_domain)
-    question_openai_vectors_group = embeddings.embed_documents(original_question)
+    question_openai_vectors_group = embeddings.embed_documents(original_questions)
     question_openai_vectors_group: t.List[List[float]]
     return client.query_points(
         collection_name="crime_cnn_news_vectors",

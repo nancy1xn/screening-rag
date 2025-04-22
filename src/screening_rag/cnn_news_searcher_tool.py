@@ -15,12 +15,12 @@ from screening_rag.custom_types import (
 from screening_rag.db import select_background_grounding_data_from_db
 
 
-def search_vectors_and_group_subsets(question_value) -> List[tuple]:
+def search_vectors_and_group_subsets(question_value: List[str]) -> List[tuple]:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
     qdrant_domain = os.getenv("QDRANT_DOMAIN")
     client = QdrantClient(url=qdrant_domain)
 
-    question_openai_vectors = embeddings.embed_documents([question_value])
+    question_openai_vectors = embeddings.embed_documents(question_value)
     question_openai_vectors: t.List[List[float]]
     search_results = client.query_points(
         collection_name="cnn_news_chunk_vectors",
@@ -152,7 +152,7 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
     ]
     saved_chunks_group = []
     for sub_question_index, question_value in enumerate(original_question):
-        related_subset = search_vectors_and_group_subsets(question_value)
+        related_subset = search_vectors_and_group_subsets([question_value])
         filtered_qa_results = filter_subsets(related_subset)
         saved_chunks_group = convert_search_results_to_subquestion_related_chunks(
             filtered_qa_results,
