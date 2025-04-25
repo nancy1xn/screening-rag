@@ -32,7 +32,7 @@ def search_vectors_and_group_subsets(question_values: List[str]) -> List[tuple]:
     for search_result in search_results.points:
         related_subset.append(
             (
-                question_value,
+                question_values,
                 search_result.payload["text"],
                 search_result.payload["article_id"],
             )
