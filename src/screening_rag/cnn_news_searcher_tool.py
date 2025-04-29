@@ -66,37 +66,7 @@ def generate_answer(saved_chunks_group: List[SubquestionRelatedChunks]) -> List[
     system_prompt = """You are a helpful assistant to generate the final answer in relation to the corresponding original question according to the chunks materials from "text" collection."""
     saved_answers = []
     for subquestion_pair in saved_chunks_group:
-        if subquestion_pair.text_collection == []:
-            if subquestion_pair.sub_question == 0:
-                saved_answers.append(
-                    {
-                        "sub_question": subquestion_pair.sub_question,
-                        "final_answer": "No relevant information found for founding time.",
-                    }
-                )
-            elif subquestion_pair.sub_question == 1:
-                saved_answers.append(
-                    {
-                        "sub_question": subquestion_pair.sub_question,
-                        "final_answer": "No relevant information found for headquarters location.",
-                    }
-                )
-            elif subquestion_pair.sub_question == 2:
-                saved_answers.append(
-                    {
-                        "sub_question": subquestion_pair.sub_question,
-                        "final_answer": "No relevant information found for listing status.",
-                    }
-                )
-            elif subquestion_pair.sub_question == 3:
-                saved_answers.append(
-                    {
-                        "sub_question": subquestion_pair.sub_question,
-                        "final_answer": "No relevant information found for type of business.",
-                    }
-                )
-
-        else:
+        if subquestion_pair.text_collection:
             aggregated_2nd_level = structured_model.invoke(
                 [
                     SystemMessage(content=system_prompt),
@@ -109,6 +79,19 @@ def generate_answer(saved_chunks_group: List[SubquestionRelatedChunks]) -> List[
                 {
                     "sub_question": subquestion_pair.sub_question,
                     "final_answer": aggregated_2nd_level.result,
+                }
+            )
+        else:
+            required_info = [
+                "founding time",
+                "headquarter's location",
+                "listing status",
+                "type of business",
+            ]
+            saved_answers.append(
+                {
+                    "sub_question": subquestion_pair.sub_question,
+                    "final_answer": f"No relevant information found for {required_info[subquestion_pair.sub_question]}",
                 }
             )
     return saved_answers
