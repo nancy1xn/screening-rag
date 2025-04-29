@@ -1,43 +1,19 @@
-import os
 import re
 import typing as t
 from typing import List
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from qdrant_client import QdrantClient
+from langchain_openai import ChatOpenAI
 
+from screening_rag.cnn_crime_searcher_tool import get_points_similar_to_embedding
 from screening_rag.custom_types import (
     ChunkBasedChatReport,
     Relevance,
     SubquestionRelatedChunks,
 )
-from screening_rag.db import select_background_grounding_data_from_db
+from screening_rag.db import Settings, select_background_grounding_data_from_db
 
-
-def search_vectors_and_group_subsets(question_values: List[str]) -> List[tuple]:
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-    qdrant_domain = os.getenv("QDRANT_DOMAIN")
-    client = QdrantClient(url=qdrant_domain)
-
-    question_openai_vectors = embeddings.embed_documents(question_values)
-    question_openai_vectors: t.List[List[float]]
-    search_results = client.query_points(
-        collection_name="cnn_news_chunk_vectors",
-        query=question_openai_vectors[0],
-        limit=3,
-    )
-
-    related_subset = []
-    for search_result in search_results.points:
-        related_subset.append(
-            (
-                question_values,
-                search_result.payload["text"],
-                search_result.payload["article_id"],
-            )
-        )
-    return related_subset
+settings = Settings()
 
 
 def is_relevance_higher_than_threshold(qa_data: t.Tuple[str]):
@@ -70,14 +46,14 @@ def filter_subsets(related_subset: List[tuple]) -> List[tuple]:
 
 def convert_search_results_to_subquestion_related_chunks(
     filtered_qa_results: List[tuple],
-    original_question: List[str],
+    original_questions: List[str],
     sub_question_index: int,
     saved_chunks_group: List,
 ) -> List[SubquestionRelatedChunks]:
     saved_chunks_group.append(
         SubquestionRelatedChunks(
             sub_question=sub_question_index,
-            original_question=original_question[sub_question_index],
+            original_question=original_questions[sub_question_index],
             text_collection=filtered_qa_results,
         )
     )
@@ -153,7 +129,15 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
     saved_chunks_group = []
 
     for sub_question_index, question_value in enumerate(original_question):
-        related_subset = search_vectors_and_group_subsets([question_value])
+        related_subset = []
+        query_response = get_points_similar_to_embedding(
+            question_value, collection_name="cnn_news_chunk_vectors", limit=3
+        )
+
+        related_subset = map(
+            lambda p: (question_value, p.payload["text"], p.payload["article_id"]),
+            query_response.points,
+        )
         filtered_qa_results = filter_subsets(related_subset)
         saved_chunks_group = convert_search_results_to_subquestion_related_chunks(
             filtered_qa_results,
@@ -175,3 +159,7 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
     set_appendix = set(final_appendix)
     sorted_appendix = sorted(set_appendix, key=lambda x: x[0])
     return final_answers, sorted_appendix
+
+
+if __name__ == "__main__":
+    generate_background_report("JP Morgan")
