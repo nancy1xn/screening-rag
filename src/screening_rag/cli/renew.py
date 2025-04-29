@@ -46,7 +46,7 @@ def renew_system(keywords: t.List[str], sort_by: SortingBy):
         latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
 
         for news_article, crimes in fetch_latest_cnn_news_crimes(
-            keyword, sort_by, datetime(2025, 2, 20, 00, 00, 0)
+            keyword, sort_by, datetime(2025, 4, 25, 00, 00, 0)
         ):
             # for news_article, crimes in fetch_latest_cnn_news_crimes(
             #     keyword, sort_by, latesttime_for_cnn_news
@@ -62,3 +62,26 @@ def renew_system(keywords: t.List[str], sort_by: SortingBy):
             for crime in crimes:
                 insert_crime_into_table(keyword, news_article, crime)
                 process_and_insert_crime_to_qdrant(crime)
+
+
+def main():
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+
+    parser.add_argument(
+        "--keyword",
+        help="The keywords to search on CNN",
+        type=str,
+        default=["JP Morgan financial crime"],
+    )
+    parser.add_argument("--amount", help="The amount of the crawled articles", type=int)
+    parser.add_argument(
+        "-s",
+        "--sortby",
+        help="The factor of news ranking",
+        default=SortingBy.NEWEST,
+    )
+    args = parser.parse_args()
+
+    renew_system(args.keyword, args.sortby)
