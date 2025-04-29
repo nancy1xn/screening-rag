@@ -1,9 +1,10 @@
 import json
-import os
 import re
 import typing as t
 from typing import List
 
+import more_itertools as mit
+import qdrant_client
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from qdrant_client import QdrantClient, models
@@ -15,9 +16,12 @@ from screening_rag.custom_types import (
     StructuredDataChatReport,
 )
 from screening_rag.db import (
+    Settings,
     select_crime_events_grounding_data_from_db,
     select_distinct_subjects_from_db,
 )
+
+settings = Settings()
 
 
 # Retrieve directly associated entity names (e.g., CEO)
@@ -41,38 +45,36 @@ def get_linked_entities(
     return generated_similar_subjects
 
 
-def search_vectors_similar_to_query_and_matching_similar_subjects(
-    original_questions: List[str], generated_similar_subjects: SimilarSubjects
+def get_points_similar_to_embedding(
+    query: str,
+    collection_name: str,
+    limit: int,
+    embedding_model: t.Optional[str] = "text-embedding-3-large",
+    dimentions: t.Optional[int] = 3072,
+    score_threshold: t.Optional[float] = None,
+    extra_qdrant_conditions: qdrant_client.conversions.common_types.Filter = None,
 ) -> QueryResponse:
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-    qdrant_domain = os.getenv("QDRANT_DOMAIN")
-    client = QdrantClient(url=qdrant_domain)
-    question_openai_vectors_group = embeddings.embed_documents(original_questions)
-    question_openai_vectors_group: t.List[List[float]]
+    embedder = OpenAIEmbeddings(model=embedding_model, dimensions=dimentions)
+    client = QdrantClient(url=settings.QDRANT_DOMAIN)
+    embedding = mit.one(embedder.embed_documents([query]))
+    embedding: t.List[List[float]]
     return client.query_points(
-        collection_name="crime_cnn_news_vectors",
-        query=question_openai_vectors_group[0],
-        limit=10,
-        score_threshold=0.41,
-        query_filter=models.Filter(
-            must=[
-                models.FieldCondition(
-                    key="subjects",
-                    match=models.MatchAny(any=generated_similar_subjects.names),
-                )
-            ]
-        ),
+        collection_name=collection_name,
+        query=embedding,
+        limit=limit,
+        score_threshold=score_threshold,
+        query_filter=extra_qdrant_conditions,
     )
 
 
 def convert_search_results_to_question_related_chunks(
-    related_crime_events: QueryResponse, original_question
+    related_crime_events: QueryResponse, query: str
 ) -> List[QuestionRelatedChunks]:
     saved_chunks_group = []
     for event in related_crime_events.points:
         saved_chunks_group.append(
             QuestionRelatedChunks(
-                original_question=original_question,
+                original_question=query,
                 crime_id=event.payload["id"],
                 time=event.payload["time"],
                 subjects=event.payload["subjects"],
@@ -123,10 +125,19 @@ def generate_crime_events_report(subject: str) -> t.Dict[str, List[str]]:
 or failed to prevent such crimes? If so, please summarize the incidents involving {subject}."""
     existing_subjects = select_distinct_subjects_from_db(subject)
     generated_similar_subjects = get_linked_entities(existing_subjects, subject)
-    related_crime_events = (
-        search_vectors_similar_to_query_and_matching_similar_subjects(
-            [original_question], generated_similar_subjects
-        )
+    related_crime_events = get_points_similar_to_embedding(
+        original_question,
+        collection_name="crime_cnn_news_vectors",
+        limit=10,
+        score_threshold=0.41,
+        extra_qdrant_conditions=models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="subjects",
+                    match=models.MatchAny(any=generated_similar_subjects.names),
+                )
+            ]
+        ),
     )
     saved_chunks_group = convert_search_results_to_question_related_chunks(
         related_crime_events, original_question
