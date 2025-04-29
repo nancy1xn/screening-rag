@@ -82,12 +82,12 @@ def generate_answer(saved_chunks_group: List[SubquestionRelatedChunks]) -> List[
                 }
             )
         else:
-            required_info = [
+            required_info = (
                 "founding time",
                 "headquarter's location",
                 "listing status",
                 "type of business",
-            ]
+            )
             saved_answers.append(
                 {
                     "sub_question": subquestion_pair.sub_question,
