@@ -151,3 +151,26 @@ def initialize_system(keywords: t.List[str], amount: int, sort_by: SortingBy):
             for crime in crimes:
                 insert_crime_into_table(keyword, news_article, crime)
                 process_and_insert_crime_to_qdrant(crime)
+
+
+def main():
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+
+    parser.add_argument(
+        "--keyword",
+        help="The keywords to search on CNN",
+        type=str,
+        default=["JP Morgan financial crime"],
+    )
+    parser.add_argument("--amount", help="The amount of the crawled articles", type=int)
+    parser.add_argument(
+        "-s",
+        "--sortby",
+        help="The factor of news ranking",
+        default=SortingBy.RELEVANCY,
+    )
+    args = parser.parse_args()
+
+    initialize_system(args.keyword, args.amount, args.sortby)
