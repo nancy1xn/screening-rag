@@ -27,7 +27,7 @@ dependencies = [
 screening-rag-init = "screening_rag.cli.initialize:main"
 screening-rag-renew = "screening_rag.cli.renew:main"
 screening-rag-report = "screening_rag.cli.report:main"
-screening-rag = "screening_rag:main"
+screening-rag = "screening_rag.cli.main:main"
 
 [build-system]
 requires = ["hatchling"]
