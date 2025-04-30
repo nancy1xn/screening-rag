@@ -208,7 +208,7 @@ def insert_chunk_table(article_id, chunks):
     return inserted_chunks
 
 
-def get_latest_time_for_cnn_news(keyword: t.List[str]):
+def get_latest_time_for_cnn_news(keyword: str):
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,

@@ -68,7 +68,7 @@ def get_crimes_from_summarized_news(
     news_summary = structured_model.invoke(
         [
             SystemMessage(content=system),
-            HumanMessage(content=article.maintext),
+            HumanMessage(content=str(article.maintext)),
             HumanMessage(content=str(article.date_publish)),
         ]
     )
@@ -130,13 +130,13 @@ def chunk_text(maintext: str) -> t.Iterable[str]:
         yield token_splitter.split_text(section)
 
 
-def initialize_system(keywords: t.List[str], amount: int, sort_by: SortingBy):
+def initialize_system(keywords: str, amount: int, sort_by: SortingBy):
     reset_and_create_cnn_news_sql_data_storage()
     reset_and_create_cnn_news_qdrant_data_storage()
     reset_and_create_crimes_sql_data_storage()
     reset_and_create_crime_qdrant_data_storage()
 
-    for keyword in keywords:
+    for keyword in keywords.split(","):
         for news_article, crimes in fetch_top_k_cnn_news_crimes(
             keyword, amount, sort_by
         ):
@@ -159,10 +159,9 @@ def main():
     parser = ArgumentParser()
 
     parser.add_argument(
-        "--keyword",
+        "--keywords",
         help="The keywords to search on CNN",
         type=str,
-        default=["JP Morgan financial crime"],
     )
     parser.add_argument("--amount", help="The amount of the crawled articles", type=int)
     parser.add_argument(
@@ -173,4 +172,9 @@ def main():
     )
     args = parser.parse_args()
 
-    initialize_system(args.keyword, args.amount, args.sortby)
+    # for keyword in args.keywords.split(","):
+    #     print(keyword)
+    #     print(args.amount)
+    #     print(args.sortby)
+    # raise ValueError
+    initialize_system(args.keywords, args.amount, args.sortby)

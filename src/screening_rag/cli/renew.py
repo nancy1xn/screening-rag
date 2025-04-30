@@ -40,8 +40,8 @@ def fetch_latest_cnn_news_crimes(
         page += 1
 
 
-def renew_system(keywords: t.List[str], sort_by: SortingBy):
-    for keyword in keywords:
+def renew_system(keywords: str, sort_by: SortingBy):
+    for keyword in keywords.split(","):
         latesttime_for_cnn_news = get_latest_time_for_cnn_news(keyword)
         latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
 
@@ -70,10 +70,9 @@ def main():
     parser = ArgumentParser()
 
     parser.add_argument(
-        "--keyword",
+        "--keywords",
         help="The keywords to search on CNN",
         type=str,
-        default=["JP Morgan financial crime"],
     )
     parser.add_argument("--amount", help="The amount of the crawled articles", type=int)
     parser.add_argument(
@@ -83,5 +82,5 @@ def main():
         default=SortingBy.NEWEST,
     )
     args = parser.parse_args()
-
-    renew_system(args.keyword, args.sortby)
+    # for keyword in args.keywords.split(","):
+    renew_system(args.keywords, args.sortby)
