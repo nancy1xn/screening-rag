@@ -153,28 +153,24 @@ def initialize_system(keywords: str, amount: int, sort_by: SortingBy):
                 process_and_insert_crime_to_qdrant(crime)
 
 
-def main():
-    from argparse import ArgumentParser
+def main(keywords, amount, sortby):
+    # from argparse import ArgumentParser
 
-    parser = ArgumentParser()
+    # parser = ArgumentParser()
 
-    parser.add_argument(
-        "--keywords",
-        help="The keywords to search on CNN",
-        type=str,
-    )
-    parser.add_argument("--amount", help="The amount of the crawled articles", type=int)
-    parser.add_argument(
-        "-s",
-        "--sortby",
-        help="The factor of news ranking",
-        default=SortingBy.RELEVANCY,
-    )
-    args = parser.parse_args()
+    # parser.add_argument(
+    #     "--keywords",
+    #     help="The keywords to search on CNN",
+    #     type=str,
+    # )
+    # parser.add_argument("--amount", help="The amount of the crawled articles", type=int)
+    # parser.add_argument(
+    #     "-s",
+    #     "--sortby",
+    #     help="The factor of news ranking",
+    #     default=SortingBy.RELEVANCY,
+    # )
+    # args = parser.parse_args()
 
-    # for keyword in args.keywords.split(","):
-    #     print(keyword)
-    #     print(args.amount)
-    #     print(args.sortby)
-    # raise ValueError
-    initialize_system(args.keywords, args.amount, args.sortby)
+    # initialize_system(args.keywords, args.amount, args.sortby)
+    initialize_system(keywords, amount, sortby)
