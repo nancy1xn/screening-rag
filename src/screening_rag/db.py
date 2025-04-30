@@ -5,6 +5,7 @@ from typing import List
 import more_itertools as mit
 import MySQLdb
 from newsplease.NewsArticle import NewsArticle
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from qdrant_client import QdrantClient, models
 
@@ -14,9 +15,9 @@ from screening_rag.custom_types import Crime
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
     QDRANT_DOMAIN: str
-    MYSQLDB_PW: str
     MYSQLDB_HOST: str
     MYSQLDB_USER: str
+    MYSQLDB_PW: SecretStr
     MYSQLDB_DATABASE: str
 
 
@@ -27,7 +28,7 @@ def reset_and_create_cnn_news_sql_data_storage():
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
-        password=settings.MYSQLDB_PW,
+        password=settings.MYSQLDB_PW.get_secret_value(),
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
@@ -69,7 +70,7 @@ def insert_cnn_news_into_table(keyword: str, news_article: NewsArticle) -> int:
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
-        password=settings.MYSQLDB_PW,
+        password=settings.MYSQLDB_PW.get_secret_value(),
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
@@ -101,7 +102,7 @@ def reset_and_create_crimes_sql_data_storage():
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
-        password=settings.MYSQLDB_PW,
+        password=settings.MYSQLDB_PW.get_secret_value(),
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
@@ -140,7 +141,7 @@ def insert_crime_into_table(keyword: str, news_article: NewsArticle, crime: Crim
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
-        password=settings.MYSQLDB_PW,
+        password=settings.MYSQLDB_PW.get_secret_value(),
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
@@ -185,7 +186,7 @@ def insert_chunk_table(article_id, chunks):
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
-        password=settings.MYSQLDB_PW,
+        password=settings.MYSQLDB_PW.get_secret_value(),
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
@@ -212,7 +213,7 @@ def get_latest_time_for_cnn_news(keyword: str):
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
-        password=settings.MYSQLDB_PW,
+        password=settings.MYSQLDB_PW.get_secret_value(),
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
@@ -236,7 +237,7 @@ def select_background_grounding_data_from_db(match_ids, final_appendix) -> List[
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
-        password=settings.MYSQLDB_PW,
+        password=settings.MYSQLDB_PW.get_secret_value(),
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
@@ -251,7 +252,7 @@ def select_distinct_subjects_from_db(subject: str) -> t.List[tuple]:
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
-        password=settings.MYSQLDB_PW,
+        password=settings.MYSQLDB_PW.get_secret_value(),
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
@@ -266,7 +267,7 @@ def select_crime_events_grounding_data_from_db(match_ids) -> List[tuple]:
     db = MySQLdb.connect(
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
-        password=settings.MYSQLDB_PW,
+        password=settings.MYSQLDB_PW.get_secret_value(),
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
