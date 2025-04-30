@@ -3,11 +3,9 @@ import re
 import typing as t
 from typing import List
 
-import more_itertools as mit
-import qdrant_client
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from qdrant_client import QdrantClient, models
+from langchain_openai import ChatOpenAI
+from qdrant_client import models
 from qdrant_client.http.models.models import QueryResponse
 
 from screening_rag.custom_types import (
@@ -20,6 +18,7 @@ from screening_rag.db import (
     select_crime_events_grounding_data_from_db,
     select_distinct_subjects_from_db,
 )
+from screening_rag.qdrant import get_points_similar_to_embedding
 
 settings = Settings()
 
@@ -45,26 +44,26 @@ def get_linked_entities(
     return generated_similar_subjects
 
 
-def get_points_similar_to_embedding(
-    query: str,
-    collection_name: str,
-    limit: int,
-    embedding_model: t.Optional[str] = "text-embedding-3-large",
-    dimentions: t.Optional[int] = 3072,
-    score_threshold: t.Optional[float] = None,
-    extra_qdrant_conditions: qdrant_client.conversions.common_types.Filter = None,
-) -> QueryResponse:
-    embedder = OpenAIEmbeddings(model=embedding_model, dimensions=dimentions)
-    client = QdrantClient(url=settings.QDRANT_DOMAIN)
-    embedding = mit.one(embedder.embed_documents([query]))
-    embedding: t.List[List[float]]
-    return client.query_points(
-        collection_name=collection_name,
-        query=embedding,
-        limit=limit,
-        score_threshold=score_threshold,
-        query_filter=extra_qdrant_conditions,
-    )
+# def get_points_similar_to_embedding(
+#     query: str,
+#     collection_name: str,
+#     limit: int,
+#     embedding_model: t.Optional[str] = "text-embedding-3-large",
+#     dimentions: t.Optional[int] = 3072,
+#     score_threshold: t.Optional[float] = None,
+#     extra_qdrant_conditions: qdrant_client.conversions.common_types.Filter = None,
+# ) -> QueryResponse:
+#     embedder = OpenAIEmbeddings(model=embedding_model, dimensions=dimentions)
+#     client = QdrantClient(url=settings.QDRANT_DOMAIN)
+#     embedding = mit.one(embedder.embed_documents([query]))
+#     embedding: t.List[List[float]]
+#     return client.query_points(
+#         collection_name=collection_name,
+#         query=embedding,
+#         limit=limit,
+#         score_threshold=score_threshold,
+#         query_filter=extra_qdrant_conditions,
+#     )
 
 
 def convert_search_results_to_question_related_chunks(

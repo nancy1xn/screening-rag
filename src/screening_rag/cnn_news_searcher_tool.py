@@ -5,13 +5,13 @@ from typing import List
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from screening_rag.cnn_crime_searcher_tool import get_points_similar_to_embedding
 from screening_rag.custom_types import (
     ChunkBasedChatReport,
     Relevance,
     SubquestionRelatedChunks,
 )
 from screening_rag.db import Settings, select_background_grounding_data_from_db
+from screening_rag.qdrant import get_points_similar_to_embedding
 
 settings = Settings()
 

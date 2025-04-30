@@ -1,8 +1,11 @@
 import typing as t
 from typing import List
 
+import more_itertools as mit
+import qdrant_client
 from langchain_openai import OpenAIEmbeddings
 from qdrant_client import QdrantClient, models
+from qdrant_client.http.models.models import QueryResponse
 
 from screening_rag.custom_types import Crime
 from screening_rag.db import Settings
@@ -76,4 +79,26 @@ def process_and_insert_crime_to_qdrant(crime: Crime):
                 vector=crime_openai_vector,
             ),
         ],
+    )
+
+
+def get_points_similar_to_embedding(
+    query: str,
+    collection_name: str,
+    limit: int,
+    embedding_model: t.Optional[str] = "text-embedding-3-large",
+    dimentions: t.Optional[int] = 3072,
+    score_threshold: t.Optional[float] = None,
+    extra_qdrant_conditions: qdrant_client.conversions.common_types.Filter = None,
+) -> QueryResponse:
+    embedder = OpenAIEmbeddings(model=embedding_model, dimensions=dimentions)
+    client = QdrantClient(url=settings.QDRANT_DOMAIN)
+    embedding = mit.one(embedder.embed_documents([query]))
+    embedding: t.List[List[float]]
+    return client.query_points(
+        collection_name=collection_name,
+        query=embedding,
+        limit=limit,
+        score_threshold=score_threshold,
+        query_filter=extra_qdrant_conditions,
     )
