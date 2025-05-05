@@ -62,25 +62,3 @@ def renew_system(keywords: str, sort_by: SortingBy):
             for crime in crimes:
                 insert_crime_into_table(keyword, news_article, crime)
                 process_and_insert_crime_to_qdrant(crime)
-
-
-def main(keywords, sortby):
-    # from argparse import ArgumentParser
-
-    # parser = ArgumentParser()
-
-    # parser.add_argument(
-    #     "--keywords",
-    #     help="The keywords to search on CNN",
-    #     type=str,
-    # )
-    # parser.add_argument("--amount", help="The amount of the crawled articles", type=int)
-    # parser.add_argument(
-    #     "-s",
-    #     "--sortby",
-    #     help="The factor of news ranking",
-    #     default=SortingBy.NEWEST,
-    # )
-    # args = parser.parse_args()
-    # renew_system(args.keywords, args.sortby)
-    renew_system(keywords, sortby)

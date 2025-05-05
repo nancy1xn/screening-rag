@@ -24,7 +24,7 @@ def main():
         help="The factor of news ranking",
         default=SortingBy.RELEVANCY,
     )
-    init_parser.set_defaults(func=initialize.main)
+    init_parser.set_defaults(func=initialize.initialize_system)
 
     # renew
     renew_parser = subcmd.add_parser("renew")
@@ -40,7 +40,7 @@ def main():
         help="The factor of news ranking",
         default=SortingBy.NEWEST,
     )
-    renew_parser.set_defaults(func=renew.main)
+    renew_parser.set_defaults(func=renew.renew_system)
 
     # report
     report_parser = subcmd.add_parser("report")
@@ -54,3 +54,5 @@ def main():
         args.func(args.keywords, args.sortby)
     elif args.command == "report":
         args.func()
+    else:
+        raise ValueError("Please use init, renew or report")
