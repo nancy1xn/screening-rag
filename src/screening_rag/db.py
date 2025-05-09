@@ -29,12 +29,11 @@ def reset_and_create_cnn_news_sql_data_storage():
         host=settings.MYSQLDB_HOST,
         user=settings.MYSQLDB_USER,
         password=settings.MYSQLDB_PW.get_secret_value(),
-        database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
 
     cur.execute("CREATE DATABASE my_database")
-
+    db.select_db("my_database")
     cur.execute("""CREATE TABLE CNN_NEWS (
                 ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
                 title VARCHAR(300), 
