@@ -33,8 +33,7 @@ def reset_and_create_cnn_news_sql_data_storage():
     )
     cur = db.cursor()
 
-    cur.execute("DROP TABLE CHUNK_CNN_NEWS;")
-    cur.execute("DROP TABLE CNN_NEWS;")
+    cur.execute("CREATE DATABASE my_database")
 
     cur.execute("""CREATE TABLE CNN_NEWS (
                 ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
@@ -106,9 +105,6 @@ def reset_and_create_crimes_sql_data_storage():
         database=settings.MYSQLDB_DATABASE,
     )
     cur = db.cursor()
-
-    cur.execute("DROP TABLE SUBJECT_CNN_NEWS;")
-    cur.execute("DROP TABLE CRIME_CNN_NEWS ;")
 
     cur.execute("""CREATE TABLE CRIME_CNN_NEWS (
                  ID BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
