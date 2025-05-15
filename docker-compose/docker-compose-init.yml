@@ -1,0 +1,18 @@
+services:
+  app:
+    image: nancy1xn/screening-rag:v1.0
+    environment:
+      QDRANT_DOMAIN: qdrant
+      MYSQLDB_HOST: sql
+      MYSQLDB_USER: ${MYSQLDB_USER}
+      MYSQLDB_PW: ${MYSQLDB_PW}
+      MYSQLDB_DATABASE: ${MYSQLDB_DATABASE}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+    depends_on:
+      qdrant:
+        condition: service_started
+      sql:
+        condition: service_healthy
+
+    command: screening-rag init --keywords 'JP Morgan Financial Crime, Binance Financial Crime' --amount 3
