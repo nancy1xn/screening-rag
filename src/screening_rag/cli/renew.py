@@ -45,12 +45,12 @@ def renew_system(keywords: str, sort_by: SortingBy):
         latesttime_for_cnn_news = get_latest_time_for_cnn_news(keyword)
         latesttime_for_cnn_news: t.Tuple[t.Tuple[datetime]]
 
+        # for news_article, crimes in fetch_latest_cnn_news_crimes(
+        #      keyword, sort_by, datetime(2025, 4, 25, 00, 00, 0)
+        # ):
         for news_article, crimes in fetch_latest_cnn_news_crimes(
-            keyword, sort_by, datetime(2025, 4, 25, 00, 00, 0)
+            keyword, sort_by, latesttime_for_cnn_news
         ):
-            # for news_article, crimes in fetch_latest_cnn_news_crimes(
-            #     keyword, sort_by, latesttime_for_cnn_news
-            # ):
             article_id = insert_cnn_news_into_table(keyword, news_article)
             chunks = chunk_text(news_article.maintext)
             results = insert_chunk_table(article_id, chunks)
