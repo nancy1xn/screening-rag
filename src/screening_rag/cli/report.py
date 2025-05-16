@@ -82,7 +82,9 @@ def main():
     if "__streamlitmagic__" not in locals():
         import streamlit.web.bootstrap
 
-        streamlit.web.bootstrap.run(__file__, False, [], {})
+        streamlit.web.bootstrap.run(
+            __file__, False, [], flag_options={"server.address": "127.0.0.1"}
+        )
 
 
 if __name__ == "__main__":
