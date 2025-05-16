@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     MYSQLDB_USER: str
     MYSQLDB_PW: SecretStr
     MYSQLDB_DATABASE: str
+    OPENAI_API_KEY: str
 
 
 settings = Settings()
