@@ -9,7 +9,7 @@ services:
       MYSQLDB_DATABASE: ${MYSQLDB_DATABASE}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     ports:
-      - "8080:8501"
+      - "127.0.0.1:8080:8501"
 
     depends_on:
       qdrant:

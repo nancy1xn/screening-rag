@@ -24,6 +24,22 @@ def render_markdown(contents, appendices):
 def report():
     print("in the function")
     st.write("# Adverse Media Report")
+    st.markdown(
+        """
+<div style="font-size:16px; color:gray; line-height:1.6">
+This is a demo system that automatically generates AML (Anti-Money Laundering) reports based on selected keywords.  
+It provides background information and past adverse media headlines for financial entities. Powered by natural language processing, the system is designed to assist in preliminary compliance risk assessments.
+
+Currently supported keywords:
+- JPMorgan Chase & Co.  
+- Binance Holdings Ltd.  
+- Deutsche Bank  
+
+⚠️ Please note that this is a demonstration platform. Data is limited and not updated in real time.
+</div>
+""",
+        unsafe_allow_html=True,
+    )
     entity_name = st.text_input(
         "Entity Name", help="The keyword used to search CNN news."
     )
