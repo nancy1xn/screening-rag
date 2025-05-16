@@ -15,4 +15,4 @@ services:
       sql:
         condition: service_healthy
 
-    command: screening-rag init --keywords 'JPMorgan Chase & Co. Financial Crime, Binance Holdings Ltd. Financial Crime, Deutsche Bank Financial Crime' --amount 25
+    command: screening-rag init --keywords 'JPMorgan Chase & Co. Financial Crime,Binance Holdings Ltd. Financial Crime,Deutsche Bank Financial Crime' --amount 25
