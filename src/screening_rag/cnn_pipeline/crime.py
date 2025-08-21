@@ -5,20 +5,19 @@ from typing import List
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from qdrant_client import models
 from qdrant_client.http.models.models import QueryResponse
 
+from screening_rag.aws_db import (
+    Settings,
+    get_crime_points_similar_to_embedding,
+    select_crime_events_grounding_data_from_db,
+    select_distinct_subjects_from_db,
+)
 from screening_rag.custom_types import (
     QuestionRelatedChunks,
     SimilarSubjects,
     StructuredDataChatReport,
 )
-from screening_rag.db import (
-    Settings,
-    select_crime_events_grounding_data_from_db,
-    select_distinct_subjects_from_db,
-)
-from screening_rag.qdrant import get_points_similar_to_embedding
 
 settings = Settings()
 
@@ -30,10 +29,12 @@ def get_linked_entities(
     """
     Retrieve names of entities that are directly associated with the subject,
     such as its key personnel (e.g., CEO), but not other unrelated or similar entities.
+    ***Make sure to include its key personnel (e.g., CEO, board members, executives) in addition to the subject entity name.
     """
     model = ChatOpenAI(model="gpt-4o", temperature=0)
-    system_prompt_subjectkeywords = """You are a helpful assistant to perform partial keyword matching to find relevant alternatives partially similar to the keyword input by the user. Remember that original input keyword shall be included """
-
+    system_prompt_subjectkeywords = """You are a helpful assistant to perform partial keyword matching to find relevant alternatives partially similar to the keyword input by the user. Remember that original input keyword shall be included, such as its key personnel (e.g., CEO), but not other unrelated or similar entities.
+    ***Make sure to include its key personnel (e.g., CEO, board members, executives) in addition to the subject entity name. """
+    print(existing_subjects)
     generated_similar_subjects = model.with_structured_output(SimilarSubjects).invoke(
         [
             SystemMessage(content=system_prompt_subjectkeywords),
@@ -41,6 +42,7 @@ def get_linked_entities(
             HumanMessage(content=subject),
         ]
     )
+
     return generated_similar_subjects
 
 
@@ -70,17 +72,17 @@ def convert_search_results_to_question_related_chunks(
     related_crime_events: QueryResponse, query: str
 ) -> List[QuestionRelatedChunks]:
     saved_chunks_group = []
-    for event in related_crime_events.points:
+    for event in related_crime_events:
         saved_chunks_group.append(
             QuestionRelatedChunks(
                 original_question=query,
-                crime_id=event.payload["id"],
-                time=event.payload["time"],
-                subjects=event.payload["subjects"],
-                summary=event.payload["summary"],
-                adverse_info_type=event.payload["adverse_info_type"],
-                violated_laws=event.payload["violated_laws"],
-                enforcement_action=event.payload["enforcement_action"],
+                crime_id=event[0],
+                time=event[1],
+                subjects=event[6],
+                summary=event[2],
+                adverse_info_type=event[3].split(","),
+                violated_laws=str(event[4]),
+                enforcement_action=event[5],
             )
         )
     return saved_chunks_group
@@ -124,19 +126,11 @@ def generate_crime_events_report(subject: str) -> t.Dict[str, List[str]]:
 or failed to prevent such crimes? If so, please summarize the incidents involving {subject}."""
     existing_subjects = select_distinct_subjects_from_db(subject)
     generated_similar_subjects = get_linked_entities(existing_subjects, subject)
-    related_crime_events = get_points_similar_to_embedding(
-        original_question,
-        collection_name="crime_cnn_news_vectors",
+    related_crime_events = get_crime_points_similar_to_embedding(
+        query=original_question,
         limit=10,
         score_threshold=0.41,
-        extra_qdrant_conditions=models.Filter(
-            must=[
-                models.FieldCondition(
-                    key="subjects",
-                    match=models.MatchAny(any=generated_similar_subjects.names),
-                )
-            ]
-        ),
+        extra_conditions=generated_similar_subjects.names,
     )
     saved_chunks_group = convert_search_results_to_question_related_chunks(
         related_crime_events, original_question
@@ -155,4 +149,4 @@ or failed to prevent such crimes? If so, please summarize the incidents involvin
 
 
 if __name__ == "__main__":
-    generate_crime_events_report("JP Morgan")
+    generate_crime_events_report("Binance")

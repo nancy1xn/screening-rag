@@ -5,13 +5,16 @@ from typing import List
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
+from screening_rag.aws_db import (
+    Settings,
+    get_chunks_points_similar_to_embedding,
+    select_background_grounding_data_from_db,
+)
 from screening_rag.custom_types import (
     ChunkBasedChatReport,
     Relevance,
     SubquestionRelatedChunks,
 )
-from screening_rag.db import Settings, select_background_grounding_data_from_db
-from screening_rag.qdrant import get_points_similar_to_embedding
 
 settings = Settings()
 
@@ -103,6 +106,10 @@ def extract_ids_from_saved_answers(ans: dict):
 
 
 def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
+    # original_question = [
+    #     f"Who is the boss of {subject}",
+    #     f"q1_2 Which country is the company {subject} headquartered in?",
+    # ]
     original_question = [
         f"q1_1 When was the company {subject} founded?",
         f"q1_2 Which country is the company {subject} headquartered in?",
@@ -113,13 +120,10 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
 
     for sub_question_index, question_value in enumerate(original_question):
         related_subset = []
-        query_response = get_points_similar_to_embedding(
-            question_value, collection_name="cnn_news_chunk_vectors", limit=3
-        )
-
+        query_response = get_chunks_points_similar_to_embedding(question_value, limit=3)
         related_subset = map(
-            lambda p: (question_value, p.payload["text"], p.payload["article_id"]),
-            query_response.points,
+            lambda p: (question_value, p[2], p[1]),
+            query_response,
         )
         filtered_qa_results = filter_subsets(related_subset)
         saved_chunks_group = convert_search_results_to_subquestion_related_chunks(
@@ -145,4 +149,4 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
 
 
 if __name__ == "__main__":
-    generate_background_report("JP Morgan")
+    generate_background_report("Binance")

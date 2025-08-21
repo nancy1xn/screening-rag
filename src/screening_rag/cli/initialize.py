@@ -1,4 +1,5 @@
 import typing as t
+from urllib.parse import urlencode
 
 import requests
 from langchain.text_splitter import (
@@ -13,20 +14,14 @@ from langchain_text_splitters.sentence_transformers import (
 from newsplease import NewsPlease
 from newsplease.NewsArticle import NewsArticle
 
-from screening_rag.custom_types import Crime, NewsSummary, SortingBy
-from screening_rag.db import (
+from screening_rag.aws_db import (
     insert_chunk_table,
     insert_cnn_news_into_table,
     insert_crime_into_table,
     reset_and_create_cnn_news_sql_data_storage,
     reset_and_create_crimes_sql_data_storage,
 )
-from screening_rag.qdrant import (
-    process_and_insert_cnn_news_chunks_to_qdrant,
-    process_and_insert_crime_to_qdrant,
-    reset_and_create_cnn_news_qdrant_data_storage,
-    reset_and_create_crime_qdrant_data_storage,
-)
+from screening_rag.custom_types import Crime, NewsSummary, SortingBy
 
 
 # get url from cnn website
@@ -45,6 +40,22 @@ def get_cnn_news(keyword: str, sort_by: SortingBy, page) -> t.Iterable[NewsArtic
             "site": "cnn",
         },
     )
+    params = {
+        "q": keyword,
+        "size": size_per_page,
+        "sort": sort_by,
+        "from": (page - 1) * 3,
+        "page": page,
+        "request_id": "stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e",
+        "site": "cnn",
+    }
+    url = f"https://search.prod.di.api.cnn.io/content?{urlencode(params)}"
+    response = requests.get(url)
+    print(f"{url} → {response.status_code}")
+
+    if response.status_code == 403:
+        print(f"⚠️ Blocked at page {page}")
+
     news_collection = web.json().get("result")
     for i, news in enumerate(news_collection):
         if news["type"] == "VideoObject":
@@ -132,9 +143,7 @@ def chunk_text(maintext: str) -> t.Iterable[str]:
 
 def initialize_system(keywords: str, amount: int, sort_by: SortingBy):
     reset_and_create_cnn_news_sql_data_storage()
-    reset_and_create_cnn_news_qdrant_data_storage()
     reset_and_create_crimes_sql_data_storage()
-    reset_and_create_crime_qdrant_data_storage()
 
     for keyword in keywords.split(","):
         for news_article, crimes in fetch_top_k_cnn_news_crimes(
@@ -142,12 +151,11 @@ def initialize_system(keywords: str, amount: int, sort_by: SortingBy):
         ):
             article_id = insert_cnn_news_into_table(keyword, news_article)
             chunks = chunk_text(news_article.maintext)
-            results = insert_chunk_table(article_id, chunks)
-            for chunk, article_id, chunk_id in results:
-                process_and_insert_cnn_news_chunks_to_qdrant(
-                    chunk, article_id, chunk_id
-                )
+            insert_chunk_table(article_id, chunks)
 
             for crime in crimes:
                 insert_crime_into_table(keyword, news_article, crime)
-                process_and_insert_crime_to_qdrant(crime)
+
+
+if __name__ == "__main__":
+    initialize_system("Binance financial crime", 2, "RELEVANCY")
