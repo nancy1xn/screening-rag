@@ -330,11 +330,6 @@ def get_crime_points_similar_to_embedding(
     question_vectors = embeddings.embed_documents([query])
     question_vectors: t.List[List[float]]
     question_vector = question_vectors[0]
-    # print(question_vector)
-
-    # 還要想要select哪些欄位, 會分兩function
-    # subject要從另一表select
-    # 還要想retrieval
 
     query = """
     SELECT DISTINCT
@@ -382,10 +377,6 @@ def get_chunks_points_similar_to_embedding(
     embeddings = OpenAIEmbeddings(model=embedding_model, dimensions=dimentions)
     question_vector = mit.one(embeddings.embed_documents([query]))
     question_vector: t.List[List[float]]
-
-    # 還要想要select哪些欄位, 可能會分兩function
-    # subject要從另一表select
-    # 還要想retrieval
 
     query = """
             SELECT
