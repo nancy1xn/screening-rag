@@ -158,4 +158,4 @@ def initialize_system(keywords: str, amount: int, sort_by: SortingBy):
 
 
 if __name__ == "__main__":
-    initialize_system("Binance financial crime", 2, "RELEVANCY")
+    initialize_system("Binance", 3, "RELEVANCY")

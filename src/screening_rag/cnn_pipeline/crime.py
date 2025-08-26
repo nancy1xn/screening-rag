@@ -126,18 +126,23 @@ def generate_crime_events_report(subject: str) -> t.Dict[str, List[str]]:
 or failed to prevent such crimes? If so, please summarize the incidents involving {subject}."""
     existing_subjects = select_distinct_subjects_from_db(subject)
     generated_similar_subjects = get_linked_entities(existing_subjects, subject)
+    print(generated_similar_subjects)
     related_crime_events = get_crime_points_similar_to_embedding(
         query=original_question,
         limit=10,
-        score_threshold=0.41,
+        score_threshold=0,
         extra_conditions=generated_similar_subjects.names,
     )
+    print(related_crime_events)
     saved_chunks_group = convert_search_results_to_question_related_chunks(
         related_crime_events, original_question
     )
+    print(saved_chunks_group)
     aggregated_2nd_level_results = deduplicate_and_generate_answer(saved_chunks_group)
     match_ids = extract_ids_from_aggregated_results(aggregated_2nd_level_results)
+    print(aggregated_2nd_level_results)
     sorted_appendices = select_crime_events_grounding_data_from_db(match_ids)
+    print(sorted_appendices)
     saved_final_answers = []
     saved_final_answers.append(
         {

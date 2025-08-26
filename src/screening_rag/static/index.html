@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>Stlite App</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@stlite/browser@0.85.1/build/stlite.css"
+    />
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/@stlite/browser@0.85.1/build/stlite.js"
+    ></script>
+  </head>
+  <body>
+    <streamlit-app>
+      import streamlit as st
+      import pyodide.http
+      import asyncio
+
+      def render_markdown(contents, appendices):
+        contents_split_by_line = list(map(lambda x: f"\n - {x}", contents))
+        final_contents = ",".join(contents_split_by_line)
+
+        contents_in_markdown_format = list(
+            map(lambda x: f"[{x[0]} {x[1]}]({x[2]})", appendices)
+        )
+        contents_in_markdown_format_split_by_line = list(
+            map(lambda x: f"\n - {x}", contents_in_markdown_format)
+        )
+        final_appendices = ",".join(contents_in_markdown_format_split_by_line)
+
+        return final_contents, final_appendices
+
+      async def router():
+        query_params = st.query_params
+        page = query_params.get("page", "read")
+        if page == "read":
+          print("in the function")
+          st.write("# Adverse Media Report")
+          st.markdown('This is a demo system that automatically generates AML (Anti-Money Laundering) reports based on selected keywords.\nIt provides background information and past adverse media headlines for financial entities. Powered by natural language processing, the system is designed to assist in preliminary compliance risk assessments.\n\n\nCurrently supported keywords:\n\n\n- Binance Holdings Ltd.\n\n\n ⚠️ Please note that this is a demonstration platform. Data is limited and not updated in real time.')
+          entity_name = st.text_input(
+              "Entity Name", help="The keyword used to search CNN news."
+          )
+        
+        elif page == "report":
+          print("in the function")
+          st.write("# Adverse Media Report")
+          st.markdown('This is a demo system that automatically generates AML (Anti-Money Laundering) reports based on selected keywords.\nIt provides background information and past adverse media headlines for financial entities. Powered by natural language processing, the system is designed to assist in preliminary compliance risk assessments.\n\n\nCurrently supported keywords:\n\n\n- Binance Holdings Ltd.\n\n\n ⚠️ Please note that this is a demonstration platform. Data is limited and not updated in real time.')
+          entity_name = st.text_input(
+              "Entity Name", help="The keyword used to search CNN news."
+          )
+          if st.button("generate report"):
+            response = await pyodide.http.pyfetch("http://127.0.0.1:8000/click-button/{entity_name}")
+            json_obj = await response.json()
+            final_background, final_appendices1 = render_markdown(json_obj["background"], json_obj["appendix1"])
+            final_contents, final_appendices = render_markdown(json_obj["content"], json_obj["appendix"])
+            st.markdown(f"## Background\n\n\n{final_background}")
+            st.markdown(f"## Appendix1\n\n\n{final_appendices1}")
+            st.markdown(f"## Adverse Information Report Headline\n\n\n{final_contents}")
+            st.markdown(f"## Appendix2\n\n\n{final_appendices}")
+            merged_content = f"# Adverse Media Report\n\n## Background\n{final_background}\n\n## Appendix1\n{final_appendices1}\n\n## Adverse Information Report Headline\n{final_contents}\n\n## Appendix2\n{final_appendices}"
+            st.download_button(
+                label="Download Markdown",
+                data=merged_content,
+                file_name="data.md",
+                mime="text/markdown",
+                icon=":material/download:",
+            )
+
+        else: st.warning("頁面不存在")
+      asyncio.run(router())
+
+    </streamlit-app>
+  </body>
+</html>

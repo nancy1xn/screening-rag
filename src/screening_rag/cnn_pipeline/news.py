@@ -85,12 +85,21 @@ def generate_answer(saved_chunks_group: List[SubquestionRelatedChunks]) -> List[
                 }
             )
         else:
+            # required_info = (
+            #     "founding time",
+            #     "headquarter's location",
+            #     "listing status",
+            #     "type of business",
+            # )
             required_info = (
-                "founding time",
-                "headquarter's location",
-                "listing status",
+                "entity name",
+                "incorporation date",
+                "founder",
+                "company's headquarter",
                 "type of business",
+                "regulatory status",
             )
+
             saved_answers.append(
                 {
                     "sub_question": subquestion_pair.sub_question,
@@ -106,16 +115,20 @@ def extract_ids_from_saved_answers(ans: dict):
 
 
 def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
-    # original_question = [
-    #     f"Who is the boss of {subject}",
-    #     f"q1_2 Which country is the company {subject} headquartered in?",
-    # ]
     original_question = [
-        f"q1_1 When was the company {subject} founded?",
-        f"q1_2 Which country is the company {subject} headquartered in?",
-        f"q1_3 What is the stock ticker of {subject} or its listing status? Please provide only relevant details.",
-        f"q1_4 What type of business does the company {subject} provide?",
+        f"q1-1 What is the entity name of {subject}?",
+        f"q1-2 When is the incorporation date of {subject}?",
+        f"q1-3 Who is the founder of {subject}?",
+        f"q1_4 Which country is the company {subject} headquartered in?",
+        f"q1_5 What type of business does the company {subject} provide?",
+        f"q1_6 What is the Regulatory status of {subject}?",
     ]
+    # original_question = [
+    #     f"q1_1 When was the company {subject} founded?",
+    #     f"q1_2 Which country is the company {subject} headquartered in?",
+    #     f"q1_3 What is the stock ticker of {subject} or its listing status? Please provide only relevant details.",
+    #     f"q1_4 What type of business does the company {subject} provide?",
+    # ]
     saved_chunks_group = []
 
     for sub_question_index, question_value in enumerate(original_question):
@@ -126,13 +139,16 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
             query_response,
         )
         filtered_qa_results = filter_subsets(related_subset)
+        # print(filtered_qa_results)
         saved_chunks_group = convert_search_results_to_subquestion_related_chunks(
             filtered_qa_results,
             original_question,
             sub_question_index,
             saved_chunks_group,
         )
+
     saved_answers = generate_answer(saved_chunks_group)
+    # print(saved_answers)
 
     final_appendix = []
     final_answers = []
@@ -142,6 +158,8 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
         final_appendix = select_background_grounding_data_from_db(
             match_ids, final_appendix
         )
+    print(final_answers)
+    # print(type(final_answers))
 
     set_appendix = set(final_appendix)
     sorted_appendix = sorted(set_appendix, key=lambda x: x[0])
