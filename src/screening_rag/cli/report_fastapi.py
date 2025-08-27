@@ -7,7 +7,7 @@ from screening_rag.cnn_pipeline.news import generate_background_report
 app = FastAPI()
 
 
-@app.get("/click-button/{entity_name}")
+@app.get("/search")
 def click_button(entity_name: str):
     background, appendix1 = generate_background_report(entity_name)
     content, appendix = generate_crime_events_report(entity_name)

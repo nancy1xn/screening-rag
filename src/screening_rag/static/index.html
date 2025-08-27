@@ -22,6 +22,7 @@
       import streamlit as st
       import pyodide.http
       import asyncio
+      import js
 
       def render_markdown(contents, appendices):
         contents_split_by_line = list(map(lambda x: f"\n - {x}", contents))
@@ -52,11 +53,12 @@
           print("in the function")
           st.write("# Adverse Media Report")
           st.markdown('This is a demo system that automatically generates AML (Anti-Money Laundering) reports based on selected keywords.\nIt provides background information and past adverse media headlines for financial entities. Powered by natural language processing, the system is designed to assist in preliminary compliance risk assessments.\n\n\nCurrently supported keywords:\n\n\n- Binance Holdings Ltd.\n\n\n ⚠️ Please note that this is a demonstration platform. Data is limited and not updated in real time.')
-          entity_name = st.text_input(
+          input_entity_name = st.text_input(
               "Entity Name", help="The keyword used to search CNN news."
           )
+          hostname = js.location.origin
           if st.button("generate report"):
-            response = await pyodide.http.pyfetch("http://127.0.0.1:8000/click-button/{entity_name}")
+            response = await pyodide.http.pyfetch(f"{hostname}/search?entity_name={input_entity_name}")
             json_obj = await response.json()
             final_background, final_appendices1 = render_markdown(json_obj["background"], json_obj["appendix1"])
             final_contents, final_appendices = render_markdown(json_obj["content"], json_obj["appendix"])
