@@ -92,7 +92,6 @@ def generate_answer(saved_chunks_group: List[SubquestionRelatedChunks]) -> List[
             #     "type of business",
             # )
             required_info = (
-                "entity name",
                 "incorporation date",
                 "founder",
                 "company's headquarter",
@@ -116,12 +115,11 @@ def extract_ids_from_saved_answers(ans: dict):
 
 def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
     original_question = [
-        f"q1-1 What is the entity name of {subject}?",
-        f"q1-2 When is the incorporation date of {subject}?",
-        f"q1-3 Who is the founder of {subject}?",
-        f"q1_4 Which country is the company {subject} headquartered in?",
-        f"q1_5 What type of business does the company {subject} provide?",
-        f"q1_6 What is the Regulatory status of {subject}?",
+        f"q1-1 When is the incorporation date of {subject}?",
+        f"q1-2 Who is the founder of {subject}?",
+        f"q1_3 Which country is the company {subject} headquartered in?",
+        f"q1_4 What type of business does the company {subject} provide?",
+        f"q1_5 What is the Regulatory status of {subject}?",
     ]
     # original_question = [
     #     f"q1_1 When was the company {subject} founded?",
