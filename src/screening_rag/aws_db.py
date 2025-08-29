@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     AWS_POSTGRESQL_NAME: str
     AWS_POSTGRESQL_USER: str
     AWS_POSTGRESQL_PW: SecretStr
+    AWS_POSTGRESQL_PORT: str
     OPENAI_API_KEY: str
 
 
@@ -30,6 +31,7 @@ def reset_and_create_cnn_news_sql_data_storage():
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -68,6 +70,7 @@ def insert_cnn_news_into_table(keyword: str, news_article: NewsArticle) -> int:
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -102,6 +105,7 @@ def reset_and_create_crimes_sql_data_storage():
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -143,6 +147,7 @@ def insert_crime_into_table(keyword: str, news_article: NewsArticle, crime: Crim
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -195,6 +200,7 @@ def insert_chunk_table(article_id, chunks):
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -231,6 +237,7 @@ def get_latest_time_for_cnn_news(keyword: str):
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -256,6 +263,7 @@ def select_background_grounding_data_from_db(match_ids, final_appendix) -> List[
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -276,6 +284,7 @@ def select_distinct_subjects_from_db(subject: str) -> t.List[tuple]:
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -292,6 +301,7 @@ def select_crime_events_grounding_data_from_db(match_ids) -> List[tuple]:
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -321,6 +331,7 @@ def get_crime_points_similar_to_embedding(
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
@@ -369,6 +380,7 @@ def get_chunks_points_similar_to_embedding(
         user=settings.AWS_POSTGRESQL_USER,
         password=settings.AWS_POSTGRESQL_PW.get_secret_value(),
         host=settings.AWS_POSTGRESQL_HOST,
+        port=settings.AWS_POSTGRESQL_PORT,
     )
 
     cur = conn.cursor()
