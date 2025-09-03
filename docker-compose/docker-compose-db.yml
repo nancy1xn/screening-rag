@@ -3,21 +3,18 @@ services:
     image: qdrant/qdrant
     volumes:
      - qdrant_data:/qdrant/storage
-
-  
-  
+    restart: always
   sql:
     image: mysql:latest
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQLDB_PW}
-
     volumes:
      - sql_data:/var/lib/mysql
-
     healthcheck:
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
       timeout: 20s
       retries: 10
+    restart: always
     
 
 volumes:

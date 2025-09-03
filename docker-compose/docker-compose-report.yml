@@ -1,6 +1,7 @@
 services:
   app:
     image: nancy1xn/screening-rag:v1.0
+    restart: always
     environment:
       QDRANT_DOMAIN: qdrant
       MYSQLDB_HOST: sql
