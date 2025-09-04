@@ -92,9 +92,10 @@ def generate_answer(saved_chunks_group: List[SubquestionRelatedChunks]) -> List[
             #     "type of business",
             # )
             required_info = (
-                "incorporation date",
                 "founder",
+                "founding time",
                 "company's headquarter",
+                "listing status",
                 "type of business",
                 "regulatory status",
             )
@@ -114,19 +115,21 @@ def extract_ids_from_saved_answers(ans: dict):
 
 
 def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
-    original_question = [
-        f"q1-1 When is the incorporation date of {subject}?",
-        f"q1-2 Who is the founder of {subject}?",
-        f"q1_3 Which country is the company {subject} headquartered in?",
-        f"q1_4 What type of business does the company {subject} provide?",
-        f"q1_5 What is the Regulatory status of {subject}?",
-    ]
     # original_question = [
-    #     f"q1_1 When was the company {subject} founded?",
-    #     f"q1_2 Which country is the company {subject} headquartered in?",
-    #     f"q1_3 What is the stock ticker of {subject} or its listing status? Please provide only relevant details.",
+    #     f"q1-1 When is the incorporation date of {subject}?",
+    #     f"q1-2 Who is the founder of {subject}?",
+    #     f"q1_3 Which country is the company {subject} headquartered in?",
     #     f"q1_4 What type of business does the company {subject} provide?",
+    #     f"q1_5 What is the Regulatory status of {subject}?",
     # ]
+    original_question = [
+        f"q1-1 Who is the founder of {subject}?",
+        f"q1_2 When was the company {subject} founded?",
+        f"q1_3 Which country is the company {subject} headquartered in?",
+        f"q1_4 What is the stock ticker of {subject} or its listing status? Please provide only relevant details.",
+        f"q1_5 What type of business does the company {subject} provide?",
+        f"q1_6 What is the Regulatory status of {subject}?",
+    ]
     saved_chunks_group = []
 
     for sub_question_index, question_value in enumerate(original_question):
