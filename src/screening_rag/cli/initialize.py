@@ -1,7 +1,7 @@
+import json
 import typing as t
-from urllib.parse import urlencode
+from typing import Optional
 
-import requests
 from langchain.text_splitter import (
     RecursiveCharacterTextSplitter,
     SentenceTransformersTokenTextSplitter,
@@ -21,47 +21,42 @@ from screening_rag.aws_db import (
     reset_and_create_cnn_news_sql_data_storage,
     reset_and_create_crimes_sql_data_storage,
 )
-from screening_rag.custom_types import Crime, NewsSummary, SortingBy
-
+from screening_rag.custom_types import Crime, NewsSummary
 
 # get url from cnn website
-def get_cnn_news(keyword: str, sort_by: SortingBy, page) -> t.Iterable[NewsArticle]:
-    size_per_page = 3
+# def get_cnn_news(keyword: str, sort_by: SortingBy, page) -> t.Iterable[NewsArticle]:
+#     size_per_page = 3
 
-    web = requests.get(
-        "https://search.prod.di.api.cnn.io/content",
-        params={
-            "q": keyword,
-            "size": size_per_page,
-            "sort": sort_by,
-            "from": (page - 1) * 3,
-            "page": page,
-            "request_id": "stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e",
-            "site": "cnn",
-        },
-    )
-    params = {
-        "q": keyword,
-        "size": size_per_page,
-        "sort": sort_by,
-        "from": (page - 1) * 3,
-        "page": page,
-        "request_id": "stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e",
-        "site": "cnn",
-    }
-    url = f"https://search.prod.di.api.cnn.io/content?{urlencode(params)}"
-    response = requests.get(url)
-    print(f"{url} → {response.status_code}")
+#     web = requests.get(
+#         "https://search.prod.di.api.cnn.io/content",
+#         params={
+#             "q": keyword,
+#             "size": size_per_page,
+#             "sort": sort_by,
+#             "from": (page - 1) * 3,
+#             "page": page,
+#             "request_id": "stellar-search-19c44161-fd1e-4aff-8957-6316363aaa0e",
+#             "site": "cnn",
+#         },
+#     )
+#     news_collection = web.json().get("result")
+#     for i, news in enumerate(news_collection):
+#         if news["type"] == "VideoObject":
+#             continue
+#         url = news["path"]
+#         yield NewsPlease.from_url(url)
 
-    if response.status_code == 403:
-        print(f"⚠️ Blocked at page {page}")
 
-    news_collection = web.json().get("result")
-    for i, news in enumerate(news_collection):
-        if news["type"] == "VideoObject":
-            continue
-        url = news["path"]
-        yield NewsPlease.from_url(url)
+# get cnn news from json file
+def get_cnn_news(keyword: str) -> t.Iterable[NewsArticle]:
+    with open("/Users/nancy1xn/Desktop/screening-rag/cnn_news.json", "r") as f:
+        news_collection = f.read()
+        news_collection_json = json.loads(news_collection)
+
+        for i, news in enumerate(news_collection_json):
+            if news["keyword"] == keyword:
+                url = news["url"]
+                yield NewsPlease.from_url(url)
 
 
 # filter cnn_news and crime_events
@@ -91,9 +86,7 @@ def get_crimes_from_summarized_news(
 
 
 def fetch_top_k_cnn_news_crimes(
-    keyword: str,
-    amount: int,
-    sort_by: SortingBy,
+    keyword: str, amount: Optional[int] = None
 ) -> t.List[t.Tuple[NewsArticle, t.List[Crime]]]:
     """Retrieve NewsArticle Objects related to financial crime.
 
@@ -106,19 +99,28 @@ def fetch_top_k_cnn_news_crimes(
                             If SortingBy.RELEVANCY: Sort media by the most relevant to the least relevant.
     """
     count = 0
-    page = 1
+    # page = 1
     news_article_collection = []
-
-    while count < amount:
-        news_articles = get_cnn_news(keyword, sort_by, page)
+    if amount is None:
+        news_articles = get_cnn_news(keyword)
         for news in news_articles:
-            if count >= amount:
-                return news_article_collection
             if crimes := get_crimes_from_summarized_news(news):
                 news_article_collection.append((news, crimes))
-                count += 1
-        page += 1
 
+    if amount is not None:
+        while count < amount:
+            news_articles = get_cnn_news(keyword)
+            for news in news_articles:
+                if count >= amount:
+                    return news_article_collection
+                if crimes := get_crimes_from_summarized_news(news):
+                    news_article_collection.append((news, crimes))
+                    count += 1
+    # page += 1
+    # except RuntimeError:
+    #     continue
+    print(news_article_collection)
+    print(type(news_article_collection))
     return news_article_collection
 
 
@@ -141,14 +143,12 @@ def chunk_text(maintext: str) -> t.Iterable[str]:
         yield token_splitter.split_text(section)
 
 
-def initialize_system(keywords: str, amount: int, sort_by: SortingBy):
+def initialize_system(keywords: str, amount: Optional[int] = None):
     reset_and_create_cnn_news_sql_data_storage()
     reset_and_create_crimes_sql_data_storage()
 
     for keyword in keywords.split(","):
-        for news_article, crimes in fetch_top_k_cnn_news_crimes(
-            keyword, amount, sort_by
-        ):
+        for news_article, crimes in fetch_top_k_cnn_news_crimes(keyword, amount):
             article_id = insert_cnn_news_into_table(keyword, news_article)
             chunks = chunk_text(news_article.maintext)
             insert_chunk_table(article_id, chunks)
@@ -158,4 +158,7 @@ def initialize_system(keywords: str, amount: int, sort_by: SortingBy):
 
 
 if __name__ == "__main__":
-    initialize_system("Binance", 3, "RELEVANCY")
+    # "JPMorgan Chase & Co. Financial Crime", "Binance Holdings Ltd. Financial Crime", "Deutsche Bank Financial Crime"
+    initialize_system(
+        "JPMorgan Chase & Co. Financial Crime,Binance Holdings Ltd. Financial Crime,Deutsche Bank Financial Crime"
+    )
