@@ -5,13 +5,16 @@ from typing import List
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
+from screening_rag.aws_db import (
+    Settings,
+    get_chunks_points_similar_to_embedding,
+    select_background_grounding_data_from_db,
+)
 from screening_rag.custom_types import (
     ChunkBasedChatReport,
     Relevance,
     SubquestionRelatedChunks,
 )
-from screening_rag.db import Settings, select_background_grounding_data_from_db
-from screening_rag.qdrant import get_points_similar_to_embedding
 
 settings = Settings()
 
@@ -82,12 +85,21 @@ def generate_answer(saved_chunks_group: List[SubquestionRelatedChunks]) -> List[
                 }
             )
         else:
+            # required_info = (
+            #     "founding time",
+            #     "headquarter's location",
+            #     "listing status",
+            #     "type of business",
+            # )
             required_info = (
+                "founder",
                 "founding time",
-                "headquarter's location",
+                "company's headquarter",
                 "listing status",
                 "type of business",
+                "regulatory status",
             )
+
             saved_answers.append(
                 {
                     "sub_question": subquestion_pair.sub_question,
@@ -103,32 +115,41 @@ def extract_ids_from_saved_answers(ans: dict):
 
 
 def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
+    # original_question = [
+    #     f"q1-1 When is the incorporation date of {subject}?",
+    #     f"q1-2 Who is the founder of {subject}?",
+    #     f"q1_3 Which country is the company {subject} headquartered in?",
+    #     f"q1_4 What type of business does the company {subject} provide?",
+    #     f"q1_5 What is the Regulatory status of {subject}?",
+    # ]
     original_question = [
-        f"q1_1 When was the company {subject} founded?",
-        f"q1_2 Which country is the company {subject} headquartered in?",
-        f"q1_3 What is the stock ticker of {subject} or its listing status? Please provide only relevant details.",
-        f"q1_4 What type of business does the company {subject} provide?",
+        f"q1-1 Who is the founder of {subject}?",
+        f"q1_2 When was the company {subject} founded?",
+        f"q1_3 Which country is the company {subject} headquartered in?",
+        f"q1_4 What is the stock ticker of {subject} or its listing status? Please provide only relevant details.",
+        f"q1_5 What type of business does the company {subject} provide?",
+        f"q1_6 What is the Regulatory status of {subject}?",
     ]
     saved_chunks_group = []
 
     for sub_question_index, question_value in enumerate(original_question):
         related_subset = []
-        query_response = get_points_similar_to_embedding(
-            question_value, collection_name="cnn_news_chunk_vectors", limit=3
-        )
-
+        query_response = get_chunks_points_similar_to_embedding(question_value, limit=3)
         related_subset = map(
-            lambda p: (question_value, p.payload["text"], p.payload["article_id"]),
-            query_response.points,
+            lambda p: (question_value, p[2], p[1]),
+            query_response,
         )
         filtered_qa_results = filter_subsets(related_subset)
+        # print(filtered_qa_results)
         saved_chunks_group = convert_search_results_to_subquestion_related_chunks(
             filtered_qa_results,
             original_question,
             sub_question_index,
             saved_chunks_group,
         )
+
     saved_answers = generate_answer(saved_chunks_group)
+    # print(saved_answers)
 
     final_appendix = []
     final_answers = []
@@ -138,6 +159,8 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
         final_appendix = select_background_grounding_data_from_db(
             match_ids, final_appendix
         )
+    print(final_answers)
+    # print(type(final_answers))
 
     set_appendix = set(final_appendix)
     sorted_appendix = sorted(set_appendix, key=lambda x: x[0])
@@ -145,4 +168,4 @@ def generate_background_report(subject: str) -> t.Dict[str, List[str]]:
 
 
 if __name__ == "__main__":
-    generate_background_report("JP Morgan")
+    generate_background_report("Binance")
